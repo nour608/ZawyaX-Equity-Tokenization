@@ -25,7 +25,7 @@ contract Factory is AccessControl, ReentrancyGuard, DataTypes {
     uint256 public projectCounter;
 
     uint256 public totalShares = 1_000_000; // 100% of the total shares
-    uint256 public BASIS_POINTS = 10000; // 10_000 is 100%
+    uint256 public BASIS_POINTS = 10_000; // 10_000 is 100%
     uint256 public PLATFORM_FEE; // (e.g., 500 = 5%) 
     uint256 public TRADING_FEE_RATE; // Global trading fee rate in basis points (e.g., 25 = 0.25%)
 
@@ -99,12 +99,15 @@ contract Factory is AccessControl, ReentrancyGuard, DataTypes {
     {
         require(valuationUSD > 0, "Valuation must be greater than 0");
         require(sharesToSell > 0, "Shares must be greater than 0");
+        require(sharesToSell <= totalShares, "Shares must be less than or equal to total shares");
         require(currencyManager.isCurrencyWhitelisted(_purchaseToken), "Purchase token not whitelisted");
 
+        uint256 platformFee = (totalShares * PLATFORM_FEE) / BASIS_POINTS;
+    
         // project name + " Equity Token", e.g. "ZawyaX Equity Token"
         string memory name = string(abi.encodePacked(_name, " Equity Token"));
         // Deploy new ERC20 token for this project
-        EquityToken token = new EquityToken(msg.sender, address(this), sharesToSell, name, _symbol);
+        EquityToken token = new EquityToken(name, _symbol, msg.sender, address(this), sharesToSell, platformFee);
 
         // Calculate price: (valuationUSD * 10^stableDecimals) / totalShares
         uint8 decimals = IERC20Metadata(_purchaseToken).decimals();
@@ -114,9 +117,6 @@ contract Factory is AccessControl, ReentrancyGuard, DataTypes {
         // Get next project ID
         projectId = projectCounter;
         projectCounter++;
-
-        // Set factory admin for pause functionality
-        token.setFactoryAdmin(address(this));
 
         // Initialize project struct
         projects[projectId] = Project({
@@ -140,25 +140,26 @@ contract Factory is AccessControl, ReentrancyGuard, DataTypes {
 
     /// @notice Buy shares in a given project
     /// @param projectId ID of the project
-    /// @param shares Number of shares to buy
-    function buyShares(uint256 projectId, uint256 shares) external {
+    /// @param sharesAmount Number of shares to buy
+    function buyShares(uint256 projectId, uint256 sharesAmount) external {
         Project storage p = projects[projectId];
         require(p.exists, "Project does not exist");
-        require(shares > 0, "Must buy at least 1 share");
-        require(shares <= p.availableSharesToSell, "Not enough shares to sell");  // check if the project has enough shares to sell
+        require(sharesAmount > 0, "Must buy at least 1 share");
+        require(sharesAmount <= p.availableSharesToSell, "Not enough shares to sell");  // check if the project has enough shares to sell
 
-        uint256 cost = shares * p.pricePerShare;
-        uint256 tokensToTransfer = shares * (10 ** IERC20Metadata(p.equityToken).decimals());
+        uint256 cost = sharesAmount * p.pricePerShare;
+        uint256 tokensToMint = sharesAmount * 1e18; // Equity tokens have 18 decimals
 
-        p.availableSharesToSell -= shares;
-        p.sharesSold += shares;
+        p.availableSharesToSell -= sharesAmount;
+        p.sharesSold += sharesAmount;
         p.availableFunds += cost;
+
         // Pull stablecoins from buyer
         IERC20(p.purchaseToken).safeTransferFrom(msg.sender, address(this), cost);
-        // Send equity tokens to buyer
-        IERC20(p.equityToken).safeTransfer(msg.sender, tokensToTransfer);
+        // Mint equity tokens to buyer
+        EquityToken(p.equityToken).mint(msg.sender, tokensToMint);
 
-        emit SharesPurchased(projectId, msg.sender, shares, cost);
+        emit SharesPurchased(projectId, msg.sender, tokensToMint, cost);
     }
 
     /// @notice Developer withdraws all raised funds for their project

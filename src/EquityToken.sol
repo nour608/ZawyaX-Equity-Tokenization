@@ -8,56 +8,68 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 /// @title EquityToken
 /// @notice ERC-20 token representing project equity (shares) with pausable transfers
 contract EquityToken is ERC20, ERC20Pausable, Ownable {
-    uint256 public totalShares = 1_000_000; // total shares is 100% equity and the total supply of the token
+    uint256 public constant TOTAL_SHARES = 1_000_000; // total shares is 100% equity and the total supply of the token
     uint256 public sharesToSell; // shares to sell is the amount of shares that will be sold to the public
     address public factory;
-    
-    // Factory admin can pause/unpause
-    address public factoryAdmin;
 
     // Events
     event FactoryAdminSet(address indexed admin);
 
+    modifier onlyFactory() {
+        require(msg.sender == factory, "Only factory can call this function");
+        _;
+    }
+
     /// @param initialOwner Address that will own this token contract (project developer)
     /// @param SharesToSell Total share supply (whole units, no decimals)
-    constructor(address initialOwner, address _factory, uint256 SharesToSell, string memory _name, string memory _symbol) Ownable(initialOwner)
+    constructor(string memory _name, string memory _symbol,address initialOwner, address _factory, uint256 SharesToSell, uint256 _platformFee) Ownable(initialOwner)
         ERC20(_name, _symbol)
     {
-        require(SharesToSell <= totalShares, "Shares to sell must be less than or equal to total shares");
+        require(SharesToSell <= TOTAL_SHARES, "Shares to sell must be less than or equal to total shares");
         sharesToSell = SharesToSell;
         factory = _factory;
-        _mint(factory, sharesToSell);
-        _mint(initialOwner, totalShares - sharesToSell);
+        _mint(factory, _platformFee);
+        _mint(initialOwner, TOTAL_SHARES - sharesToSell - _platformFee);
+    }
+
+    function mint(address to, uint256 amount) public onlyFactory {
+        require(amount <= sharesToSell, "EquityToken: Max supply exceeded");
+        _mint(to, amount);
+        sharesToSell -= amount;
     }
 
     function setSharesToSell(uint256 _sharesToSell) external onlyOwner {
-        require(_sharesToSell <= totalShares, "Shares to sell must be less than or equal to total shares");
+        require(_sharesToSell <= TOTAL_SHARES, "Shares to sell must be less than or equal to total shares");
         require(_sharesToSell > sharesToSell, "Shares to sell must be greater than the current shares to sell");
-        sharesToSell = _sharesToSell;
-        transfer(factory, _sharesToSell - sharesToSell);
+        sharesToSell += _sharesToSell;
+        _burn(msg.sender, _sharesToSell);
+    }
+
+    /************************************************
+     *            Transfer Functionality            *
+     *************************************************/
+
+    function transfer(address to, uint256 amount) public override whenNotPaused returns (bool) {
+        return super.transfer(to, amount);
+    }
+
+    function transferFrom(address from, address to, uint256 amount) public override whenNotPaused returns (bool) {
+        return super.transferFrom(from, to, amount);
     }
 
     /************************************************
      *            Pausable Functionality            *
      *************************************************/
 
-    /// @notice Set factory admin (only callable by factory)
-    /// @param admin Address to set as factory admin
-    function setFactoryAdmin(address admin) external {
-        require(msg.sender == factory, "Only factory can set admin");
-        factoryAdmin = admin;
-        emit FactoryAdminSet(admin);
-    }
-
-    /// @notice Pause token transfers (only owner or factory admin)
+    /// @notice Pause token transfers (only owner or factory)
     function pause() external {
-        require(msg.sender == owner() || msg.sender == factoryAdmin, "Only owner or factory admin can pause");
+        require(msg.sender == owner() || msg.sender == factory, "Only owner or factory can pause");
         _pause();
     }
 
-    /// @notice Unpause token transfers (only owner or factory admin)
+    /// @notice Unpause token transfers (only owner or factory)
     function unpause() external {
-        require(msg.sender == owner() || msg.sender == factoryAdmin, "Only owner or factory admin can unpause");
+        require(msg.sender == owner() || msg.sender == factory, "Only owner or factory can unpause");
         _unpause();
     }
 
