@@ -5,12 +5,11 @@ import {DataTypes} from "./utils/DataTypes.sol";
 import {UserRegistry} from "./UserRegistry.sol";
 import {ICurrencyManager} from "./interfaces/ICurrencyManager.sol";
 import {OrderBookLib} from "./libraries/OrderBookLib.sol";
-
-import "./EquityToken.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {EquityToken} from "./EquityToken.sol";
+import {ERC20, IERC20, IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 contract Factory is AccessControl, ReentrancyGuard, DataTypes {
     using SafeERC20 for IERC20;
@@ -67,16 +66,9 @@ contract Factory is AccessControl, ReentrancyGuard, DataTypes {
     event ProjectExists(uint256 indexed projectId, bool exists);
     event SecondaryMarketEnabled(uint256 indexed projectId, address indexed orderBook, uint256 tradingFeeRate);
     event SecondaryMarketDisabled(uint256 indexed projectId);
-    
-    // Trading events
-    event OrderPlaced(uint256 indexed orderId, uint256 indexed projectId, address indexed trader, OrderType orderType, uint256 shares, uint256 price);
-    event OrderFilled(uint256 indexed orderId, uint256 sharesFilled, uint256 sharesRemaining);
-    event OrderCancelled(uint256 indexed orderId);
-    event TradeExecuted(uint256 indexed tradeId, uint256 indexed projectId, address buyer, address seller, uint256 shares, uint256 price);
-    event MarketStatsUpdated(uint256 indexed projectId, uint256 lastPrice, uint256 volume24h);
 
     modifier onlyFactoryAdmin() {
-        require(msg.sender == ADMIN_ROLE, "Only factory admin can call this function");
+        require(hasRole(ADMIN_ROLE, msg.sender), "Only factory admin can call this function");
         _;
     }
 
@@ -98,7 +90,7 @@ contract Factory is AccessControl, ReentrancyGuard, DataTypes {
     /// @notice Create a new tokenized project
     /// @param ipfsCID IPFS hash / URI for project metadata
     /// @param valuationUSD Total valuation in USD (no decimals)
-    /// @param totalShares Number of shares to issue (whole units)
+    /// @param sharesToSell Number of shares to issue (whole units)
     /// @param _purchaseToken Address of ERC20 stablecoin (e.g. USDC)
     function createProject(bytes32 ipfsCID, uint256 valuationUSD, uint256 sharesToSell, address _purchaseToken, string memory _name, string memory _symbol)
         external
@@ -109,7 +101,7 @@ contract Factory is AccessControl, ReentrancyGuard, DataTypes {
         require(currencyManager.isCurrencyWhitelisted(_purchaseToken), "Purchase token not whitelisted");
 
         // project name + " Equity Token", e.g. "ZawyaX Equity Token"
-        string memory name = _name + " Equity Token";
+        string memory name = string(abi.encodePacked(_name, " Equity Token"));
         // Deploy new ERC20 token for this project
         EquityToken token = new EquityToken(msg.sender, address(this), sharesToSell, name, _symbol);
 
@@ -151,7 +143,7 @@ contract Factory is AccessControl, ReentrancyGuard, DataTypes {
     function buyShares(uint256 projectId, uint256 shares) external {
         Project storage p = projects[projectId];
         require(p.exists, "Project does not exist");
-        require(shares > 0, "Must buy ≥ 1 share");
+        require(shares > 0, "Must buy at least 1 share");
         require(shares <= p.availableSharesToSell, "Not enough shares to sell");  // check if the project has enough shares to sell
 
         uint256 cost = shares * p.pricePerShare;
@@ -185,12 +177,12 @@ contract Factory is AccessControl, ReentrancyGuard, DataTypes {
             IERC20(p.purchaseToken).safeTransfer(to, amount);
             emit FundsWithdrawn(projectId, amount, to, msg.sender);
         } else if (p.verified) {
-            require(msg.sender == ADMIN_ROLE, "Not factory admin");
+            require(hasRole(ADMIN_ROLE, msg.sender), "Not factory admin");  
             require(amount > 0, "Amount must be greater than 0");
             require(amount <= p.availableFunds, "Not enough funds to withdraw");
             p.availableFunds -= amount;
             if (to == address(0)) {
-                to = ADMIN_ROLE;
+                revert("Invalid to address");
             }
             IERC20(p.purchaseToken).safeTransfer(to, amount);
             emit FundsWithdrawn(projectId, amount, to, msg.sender);
@@ -331,14 +323,14 @@ contract Factory is AccessControl, ReentrancyGuard, DataTypes {
     /// @param projectId Project ID
     /// @param depth Number of orders per side to return
     /// @return buyPrices Array of buy prices
-    /// @return buyShares Array of buy shares
+    /// @return sharesToBuy Array of buy shares
     /// @return sellPrices Array of sell prices
-    /// @return sellShares Array of sell shares
+    /// @return sharesToSell Array of sell shares
     function getOrderBookDepth(uint256 projectId, uint256 depth) external view returns (
         uint256[] memory buyPrices,
-        uint256[] memory buyShares,
+        uint256[] memory sharesToBuy,
         uint256[] memory sellPrices,
-        uint256[] memory sellShares
+        uint256[] memory sharesToSell
     ) {
         return OrderBookLib.getOrderBookDepth(
             orders,
