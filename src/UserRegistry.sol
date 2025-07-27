@@ -3,8 +3,7 @@ pragma solidity 0.8.25;
 
 import {DataTypes} from "./utils/DataTypes.sol";
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 contract UserRegistry is DataTypes, AccessControl {
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");

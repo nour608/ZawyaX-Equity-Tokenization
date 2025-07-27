@@ -6,7 +6,7 @@ import {UserRegistry} from "./UserRegistry.sol";
 import {ICurrencyManager} from "./interfaces/ICurrencyManager.sol";
 import {OrderBookLib} from "./libraries/OrderBookLib.sol";
 import {EquityToken} from "./EquityToken.sol";
-import {ERC20, IERC20, IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {IERC20, IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -77,11 +77,11 @@ contract Factory is AccessControl, ReentrancyGuard, DataTypes {
         _;
     }
 
-    constructor(address _userRegistry, address _currencyManager, uint256 _platformFee) {
+    constructor(address _userRegistry, address _currencyManager, uint256 _platformFee, uint256 _tradingFeeRate) {
         currencyManager = ICurrencyManager(_currencyManager);
         userRegistry = UserRegistry(_userRegistry);
         PLATFORM_FEE = _platformFee;
-        TRADING_FEE_RATE = 25; // Default 0.25% trading fee
+        TRADING_FEE_RATE = _tradingFeeRate;
         projectCounter = 1;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
