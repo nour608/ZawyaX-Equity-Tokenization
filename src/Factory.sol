@@ -4,14 +4,17 @@ pragma solidity 0.8.25;
 import {DataTypes} from "./utils/DataTypes.sol";
 import {UserRegistry} from "./UserRegistry.sol";
 import {ICurrencyManager} from "./interfaces/ICurrencyManager.sol";
+import {OrderBookLib} from "./libraries/OrderBookLib.sol";
 
 import "./EquityToken.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract Factory is AccessControl, DataTypes {
+contract Factory is AccessControl, ReentrancyGuard, DataTypes {
     using SafeERC20 for IERC20;
+    using OrderBookLib for mapping(uint256 => Project);
 
     UserRegistry public userRegistry;
     ICurrencyManager public currencyManager;
@@ -21,11 +24,33 @@ contract Factory is AccessControl, DataTypes {
     // Counter for project IDs
     uint256 public projectCounter;
 
+    uint256 public totalShares = 1_000_000; // 100% of the total shares
     uint256 public BASIS_POINTS = 10000; // 10_000 is 100%
-    uint256 public PLATFORM_FEE; // 500 is 5% , Percentage of the budget to be paid as platform fee
+    uint256 public PLATFORM_FEE; // (e.g., 500 = 5%) 
+    uint256 public TRADING_FEE_RATE; // Global trading fee rate in basis points (e.g., 25 = 0.25%)
 
     // Mapping from project ID to Project struct
     mapping(uint256 => Project) public projects;
+    
+    // Trading storage (centralized for all projects)
+    uint256 public orderCounter = 1;
+    uint256 public tradeCounter = 1;
+    
+    // Order storage: orderId => Order
+    mapping(uint256 => Order) public orders;
+    
+    // User orders: user => orderIds[]
+    mapping(address => uint256[]) public userOrders;
+    
+    // Project-specific order books: projectId => buyOrderIds[]
+    mapping(uint256 => uint256[]) public projectBuyOrders;
+    mapping(uint256 => uint256[]) public projectSellOrders;
+    
+    // Trading history: projectId => trades[]
+    mapping(uint256 => Trade[]) public projectTrades;
+    
+    // Market statistics: projectId => MarketStats
+    mapping(uint256 => MarketStats) public projectMarketStats;
 
     event ProjectCreated(
         uint256 indexed projectId,
@@ -37,14 +62,34 @@ contract Factory is AccessControl, DataTypes {
         bytes32 ipfsCID
     );
     event SharesPurchased(uint256 indexed projectId, address indexed buyer, uint256 shares, uint256 amountPaid);
-    event FundsWithdrawn(uint256 indexed projectId, uint256 amount);
+    event FundsWithdrawn(uint256 indexed projectId, uint256 amount, address to, address from);
     event ProjectVerified(uint256 indexed projectId, bool verified);
     event ProjectExists(uint256 indexed projectId, bool exists);
+    event SecondaryMarketEnabled(uint256 indexed projectId, address indexed orderBook, uint256 tradingFeeRate);
+    event SecondaryMarketDisabled(uint256 indexed projectId);
+    
+    // Trading events
+    event OrderPlaced(uint256 indexed orderId, uint256 indexed projectId, address indexed trader, OrderType orderType, uint256 shares, uint256 price);
+    event OrderFilled(uint256 indexed orderId, uint256 sharesFilled, uint256 sharesRemaining);
+    event OrderCancelled(uint256 indexed orderId);
+    event TradeExecuted(uint256 indexed tradeId, uint256 indexed projectId, address buyer, address seller, uint256 shares, uint256 price);
+    event MarketStatsUpdated(uint256 indexed projectId, uint256 lastPrice, uint256 volume24h);
+
+    modifier onlyFactoryAdmin() {
+        require(msg.sender == ADMIN_ROLE, "Only factory admin can call this function");
+        _;
+    }
+
+    modifier onlyProjectFounder(uint256 projectId) {
+        require(projects[projectId].founder == msg.sender, "Only project founder can call this function");
+        _;
+    }
 
     constructor(address _userRegistry, address _currencyManager, uint256 _platformFee) {
         currencyManager = ICurrencyManager(_currencyManager);
         userRegistry = UserRegistry(_userRegistry);
         PLATFORM_FEE = _platformFee;
+        TRADING_FEE_RATE = 25; // Default 0.25% trading fee
         projectCounter = 1;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
@@ -55,18 +100,18 @@ contract Factory is AccessControl, DataTypes {
     /// @param valuationUSD Total valuation in USD (no decimals)
     /// @param totalShares Number of shares to issue (whole units)
     /// @param _purchaseToken Address of ERC20 stablecoin (e.g. USDC)
-    function createProject(bytes32 ipfsCID, uint256 valuationUSD, uint256 totalShares, address _purchaseToken, string memory _name, string memory _symbol)
+    function createProject(bytes32 ipfsCID, uint256 valuationUSD, uint256 sharesToSell, address _purchaseToken, string memory _name, string memory _symbol)
         external
         returns (uint256 projectId)
     {
-        require(valuationUSD > 0, "Valuation > 0");
-        require(totalShares > 0, "Shares > 0");
+        require(valuationUSD > 0, "Valuation must be greater than 0");
+        require(sharesToSell > 0, "Shares must be greater than 0");
         require(currencyManager.isCurrencyWhitelisted(_purchaseToken), "Purchase token not whitelisted");
 
         // project name + " Equity Token", e.g. "ZawyaX Equity Token"
         string memory name = _name + " Equity Token";
         // Deploy new ERC20 token for this project
-        EquityToken token = new EquityToken(msg.sender, address(this), totalShares, name, _symbol);
+        EquityToken token = new EquityToken(msg.sender, address(this), sharesToSell, name, _symbol);
 
         // Calculate price: (valuationUSD * 10^stableDecimals) / totalShares
         uint8 decimals = IERC20Metadata(_purchaseToken).decimals();
@@ -77,18 +122,24 @@ contract Factory is AccessControl, DataTypes {
         projectId = projectCounter;
         projectCounter++;
 
+        // Set factory admin for pause functionality
+        token.setFactoryAdmin(address(this));
+
         // Initialize project struct
         projects[projectId] = Project({
             equityToken: address(token),
             purchaseToken: _purchaseToken,
             valuationUSD: valuationUSD,
             totalShares: totalShares,
+            availableSharesToSell: sharesToSell,
             sharesSold: 0,
             pricePerShare: price,
+            availableFunds: 0,
             ipfsCID: ipfsCID,
             founder: msg.sender,
             exists: true,
-            verified: false
+            verified: false,
+            secondaryMarketEnabled: false
         });
 
         emit ProjectCreated(projectId, msg.sender, address(token), _purchaseToken, valuationUSD, totalShares, ipfsCID);
@@ -100,32 +151,51 @@ contract Factory is AccessControl, DataTypes {
     function buyShares(uint256 projectId, uint256 shares) external {
         Project storage p = projects[projectId];
         require(p.exists, "Project does not exist");
-        require(shares > 0, "Must buy ≥1 share");
-        require(p.sharesSold + shares <= p.totalShares, "Not enough shares");
+        require(shares > 0, "Must buy ≥ 1 share");
+        require(shares <= p.availableSharesToSell, "Not enough shares to sell");  // check if the project has enough shares to sell
 
         uint256 cost = shares * p.pricePerShare;
         uint256 tokensToTransfer = shares * (10 ** IERC20Metadata(p.equityToken).decimals());
 
+        p.availableSharesToSell -= shares;
+        p.sharesSold += shares;
+        p.availableFunds += cost;
         // Pull stablecoins from buyer
         IERC20(p.purchaseToken).safeTransferFrom(msg.sender, address(this), cost);
         // Send equity tokens to buyer
         IERC20(p.equityToken).safeTransfer(msg.sender, tokensToTransfer);
 
-        p.sharesSold += shares;
         emit SharesPurchased(projectId, msg.sender, shares, cost);
     }
 
     /// @notice Developer withdraws all raised funds for their project
     /// @param projectId ID of the project
-    function withdrawFunds(uint256 projectId) external {
+    function withdrawFunds(uint256 projectId, uint256 amount, address to) external {
         Project storage p = projects[projectId];
         require(p.exists, "Project does not exist");
-        require(msg.sender == p.founder, "Not project owner");
-        uint256 balance = IERC20(p.purchaseToken).balanceOf(address(this));
-        require(balance > 0, "No funds to withdraw");
 
-        IERC20(p.purchaseToken).safeTransfer(p.founder, balance);
-        emit FundsWithdrawn(projectId, balance);
+        if (!p.verified) {
+            require(msg.sender == p.founder, "Not project founder");
+            require(amount > 0, "Amount must be greater than 0");
+            require(amount <= p.availableFunds, "Not enough funds to withdraw");
+            p.availableFunds -= amount;
+            if (to == address(0)) {
+                to = p.founder;
+            }
+            IERC20(p.purchaseToken).safeTransfer(to, amount);
+            emit FundsWithdrawn(projectId, amount, to, msg.sender);
+        } else if (p.verified) {
+            require(msg.sender == ADMIN_ROLE, "Not factory admin");
+            require(amount > 0, "Amount must be greater than 0");
+            require(amount <= p.availableFunds, "Not enough funds to withdraw");
+            p.availableFunds -= amount;
+            if (to == address(0)) {
+                to = ADMIN_ROLE;
+            }
+            IERC20(p.purchaseToken).safeTransfer(to, amount);
+            emit FundsWithdrawn(projectId, amount, to, msg.sender);
+        }
+
     }
 
     // TODO: dividend distribution logic (e.g., snapshot + pro-rata payouts)
@@ -146,12 +216,245 @@ contract Factory is AccessControl, DataTypes {
         return projects[projectId];
     }
 
-    /**************************
-     *     Admin functions    *
-     **************************/
+    /************************************************
+     *            Secondary Market Functions         *
+     *************************************************/
+
+    /// @notice Enable secondary market trading for a project
+    /// @param projectId Project to enable trading for
+    function enableSecondaryMarket(uint256 projectId) external {
+        Project storage project = projects[projectId];
+        require(project.exists, "Project does not exist");
+        require(project.founder == msg.sender, "Only founder can enable market");
+        require(!project.secondaryMarketEnabled, "Market already enabled");
+        
+        //@todo : add a check if the Project Equity Token is not paused on transfer
+        
+        // Update project to enable secondary market
+        project.secondaryMarketEnabled = true;
+        
+        // Initialize market stats
+        projectMarketStats[projectId].lastUpdateTime = block.timestamp;
+        
+        emit SecondaryMarketEnabled(projectId, address(this), TRADING_FEE_RATE);
+    }
+
+    /// @notice Disable secondary market trading for a project
+    /// @param projectId Project to disable trading for
+    function disableSecondaryMarket(uint256 projectId) external {
+        Project storage project = projects[projectId];
+        require(project.exists, "Project does not exist");
+        require(project.founder == msg.sender, "Only founder can disable market");
+        require(project.secondaryMarketEnabled, "Market not enabled");
+        
+        project.secondaryMarketEnabled = false;
+        // Note: OrderBook contract remains deployed but trading is logically disabled
+        
+        emit SecondaryMarketDisabled(projectId);
+    }
+
+    /// @notice Get market price for a project
+    /// @param projectId Project ID
+    /// @return Current market price (returns initial price if no trades yet)
+    function getMarketPrice(uint256 projectId) external view returns (uint256) {
+        Project storage project = projects[projectId];
+        if (!project.secondaryMarketEnabled) {
+            return project.pricePerShare; // Return initial price if no secondary market
+        }
+        
+        uint256 marketPrice = OrderBookLib.getMarketPrice(projectMarketStats, projectId);
+        return marketPrice > 0 ? marketPrice : project.pricePerShare;
+    }
+
+    /// @notice Check if secondary market is enabled for a project
+    /// @param projectId Project ID
+    /// @return True if secondary market is enabled
+    function isSecondaryMarketEnabled(uint256 projectId) external view returns (bool) {
+        return projects[projectId].secondaryMarketEnabled;
+    }
+
+    /// @notice Place a limit order on the secondary market
+    /// @param projectId Project to trade
+    /// @param orderType BUY or SELL
+    /// @param shares Number of shares
+    /// @param pricePerShare Price per share
+    /// @param expirationTime Order expiration timestamp (0 = no expiration)
+    /// @return orderId Unique order identifier
+    function placeLimitOrder(
+        uint256 projectId,
+        OrderType orderType,
+        uint256 shares,
+        uint256 pricePerShare,
+        uint256 expirationTime
+    ) external nonReentrant returns (uint256 orderId) {
+        orderId = OrderBookLib.placeLimitOrder(
+            projects,
+            orders,
+            userOrders,
+            projectBuyOrders,
+            projectSellOrders,
+            projectId,
+            orderType,
+            shares,
+            pricePerShare,
+            expirationTime
+        );
+        
+        // Try to match orders immediately
+        OrderBookLib.matchOrdersForProject(
+            projects,
+            orders,
+            projectBuyOrders,
+            projectSellOrders,
+            projectTrades,
+            projectMarketStats,
+            projectId,
+            TRADING_FEE_RATE
+        );
+        
+        return orderId;
+    }
+
+    /// @notice Cancel an active order
+    /// @param orderId Order to cancel
+    function cancelOrder(uint256 orderId) external nonReentrant {
+        OrderBookLib.cancelOrder(
+            projects,
+            orders,
+            projectBuyOrders,
+            projectSellOrders,
+            orderId
+        );
+    }
+
+    /// @notice Get order book depth for a project
+    /// @param projectId Project ID
+    /// @param depth Number of orders per side to return
+    /// @return buyPrices Array of buy prices
+    /// @return buyShares Array of buy shares
+    /// @return sellPrices Array of sell prices
+    /// @return sellShares Array of sell shares
+    function getOrderBookDepth(uint256 projectId, uint256 depth) external view returns (
+        uint256[] memory buyPrices,
+        uint256[] memory buyShares,
+        uint256[] memory sellPrices,
+        uint256[] memory sellShares
+    ) {
+        return OrderBookLib.getOrderBookDepth(
+            orders,
+            projectBuyOrders,
+            projectSellOrders,
+            projectId,
+            depth
+        );
+    }
+
+    /// @notice Get user's active orders for a project
+    /// @param user User address
+    /// @param projectId Project ID
+    /// @return userOrders Array of user's orders
+    function getUserOrders(address user, uint256 projectId) external view returns (Order[] memory) {
+        return OrderBookLib.getUserOrders(
+            orders,
+            userOrders,
+            user,
+            projectId
+        );
+    }
+
+    /// @notice Get trading history for a project
+    /// @param projectId Project ID
+    /// @param limit Number of recent trades to return
+    /// @return Recent trades array
+    function getTradingHistory(uint256 projectId, uint256 limit) external view returns (Trade[] memory) {
+        Trade[] storage allTrades = projectTrades[projectId];
+        
+        if (allTrades.length == 0) {
+            return new Trade[](0);
+        }
+        
+        uint256 returnLength = allTrades.length > limit ? limit : allTrades.length;
+        Trade[] memory recentTrades = new Trade[](returnLength);
+        
+        // Return most recent trades
+        for (uint256 i = 0; i < returnLength; i++) {
+            recentTrades[i] = allTrades[allTrades.length - 1 - i];
+        }
+        
+        return recentTrades;
+    }
+
+    /// @notice Get market statistics for a project
+    /// @param projectId Project ID
+    /// @return Market statistics
+    function getMarketStats(uint256 projectId) external view returns (MarketStats memory) {
+        return projectMarketStats[projectId];
+    }
+
+    /// @notice Manual order matching (can be called by anyone)
+    /// @param projectId Project to match orders for
+    /// @return Number of trades executed
+    function matchOrders(uint256 projectId) external returns (uint256) {
+        return OrderBookLib.matchOrdersForProject(
+            projects,
+            orders,
+            projectBuyOrders,
+            projectSellOrders,
+            projectTrades,
+            projectMarketStats,
+            projectId,
+            TRADING_FEE_RATE
+        );
+    }
+
+    /************************************************
+     *              Pause Management                *
+     *************************************************/
+
+    /// @notice Pause a project's equity token (admin only)
+    /// @param projectId Project ID to pause
+    function pauseProject(uint256 projectId) external onlyRole(ADMIN_ROLE) {
+        Project storage project = projects[projectId];
+        require(project.exists, "Project does not exist");
+        
+        EquityToken token = EquityToken(project.equityToken);
+        token.pause();
+    }
+
+    /// @notice Unpause a project's equity token (admin only)  
+    /// @param projectId Project ID to unpause
+    function unpauseProject(uint256 projectId) external onlyRole(ADMIN_ROLE) {
+        Project storage project = projects[projectId];
+        require(project.exists, "Project does not exist");
+        
+        EquityToken token = EquityToken(project.equityToken);
+        token.unpause();
+    }
+
+    /// @notice Check if a project is paused
+    /// @param projectId Project ID to check
+    /// @return True if paused
+    function isProjectPaused(uint256 projectId) external view returns (bool) {
+        Project storage project = projects[projectId];
+        require(project.exists, "Project does not exist");
+        
+        EquityToken token = EquityToken(project.equityToken);
+        return token.paused();
+    }
+
+    /************************************************
+     *                 Admin functions               *
+     *************************************************/
 
     function setPlatformFee(uint256 _platformFee) external onlyRole(DEFAULT_ADMIN_ROLE) {
         PLATFORM_FEE = _platformFee;
+    }
+
+    /// @notice Set global trading fee rate (admin only)
+    /// @param _tradingFeeRate New trading fee rate in basis points
+    function setTradingFeeRate(uint256 _tradingFeeRate) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(_tradingFeeRate <= 1000, "Fee rate too high"); // Max 10%
+        TRADING_FEE_RATE = _tradingFeeRate;
     }
 
     function setProjectVerified(uint256 projectId, bool _verified) external onlyRole(DEFAULT_ADMIN_ROLE) {

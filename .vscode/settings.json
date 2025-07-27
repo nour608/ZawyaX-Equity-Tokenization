@@ -7,5 +7,7 @@
   "[solidity]": {
     "editor.formatOnSave": false,
     "editor.defaultFormatter": "NomicFoundation.hardhat-solidity"
-  }
+  },
+  "inline-bookmarks.default.words.red": "@audit[\\s], @audit\\-high[\\s], @audit\\-medium[\\s], @audit\\-wrote[\\s],",
+  "inline-bookmarks.default.words.blue": "@audit\\-info[\\s], @todo[\\s], @note[\\s], @remind[\\s], @follow-up[\\s], @Q[\\s], @A[\\s]"
 } 
