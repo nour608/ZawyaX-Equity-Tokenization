@@ -29,6 +29,8 @@ contract Factory is AccessControl, ReentrancyGuard, DataTypes {
     uint256 public PLATFORM_FEE; // (e.g., 500 = 5%) 
     uint256 public TRADING_FEE_RATE; // Global trading fee rate in basis points (e.g., 25 = 0.25%)
 
+    uint256 public TradeFeeAmount;
+
     // Mapping from project ID to Project struct
     mapping(uint256 => Project) public projects;
     
@@ -148,7 +150,7 @@ contract Factory is AccessControl, ReentrancyGuard, DataTypes {
         require(sharesAmount > 0, "Must buy at least 1 share");
         require(sharesAmount <= p.availableSharesToSell, "Not enough shares to sell");  // check if the project has enough shares to sell
 
-        uint256 cost = sharesAmount * p.pricePerShare;
+        uint256 cost = (sharesAmount * p.pricePerShare) / 1e18; 
         uint256 tokensToMint = sharesAmount; // Equity tokens have 18 decimals
 
         p.availableSharesToSell -= sharesAmount;
@@ -388,9 +390,10 @@ contract Factory is AccessControl, ReentrancyGuard, DataTypes {
 
     /// @notice Manual order matching (can be called by anyone)
     /// @param projectId Project to match orders for
-    /// @return Number of trades executed
-    function matchOrders(uint256 projectId) external returns (uint256) {
-        return OrderBookLib.matchOrdersForProject(
+    /// @return tradesExecuted Number of trades executed
+    /// @return feeAmount Total fee amount collected
+    function matchOrders(uint256 projectId) external returns (uint256 tradesExecuted, uint256 feeAmount) {
+        (tradesExecuted, feeAmount) = OrderBookLib.matchOrdersForProject(
             projects,
             orders,
             projectBuyOrders,
@@ -400,6 +403,7 @@ contract Factory is AccessControl, ReentrancyGuard, DataTypes {
             projectId,
             TRADING_FEE_RATE
         );
+        TradeFeeAmount += feeAmount;
     }
 
     /************************************************

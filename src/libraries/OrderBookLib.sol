@@ -121,7 +121,7 @@ library OrderBookLib {
         mapping(uint256 => DataTypes.MarketStats) storage projectMarketStats,
         uint256 projectId,
         uint256 tradingFeeRate
-    ) external returns (uint256 tradesExecuted) {
+    ) external returns (uint256 tradesExecuted, uint256 feeAmount) {
         uint256[] storage buyOrderIds = projectBuyOrders[projectId];
         uint256[] storage sellOrderIds = projectSellOrders[projectId];
         
@@ -139,7 +139,7 @@ library OrderBookLib {
                 buyOrder.status == DataTypes.OrderStatus.ACTIVE &&
                 sellOrder.status == DataTypes.OrderStatus.ACTIVE) {
                 
-                _executeTrade(
+                feeAmount = _executeTrade(
                     projects,
                     orders,
                     buyOrderIds,
@@ -332,7 +332,7 @@ library OrderBookLib {
         uint256 buyOrderId,
         uint256 sellOrderId,
         uint256 tradingFeeRate
-    ) internal {
+    ) internal returns (uint256 feeAmount) {
         DataTypes.Order storage buyOrder = orders[buyOrderId];
         DataTypes.Order storage sellOrder = orders[sellOrderId];
         DataTypes.Project storage project = projects[projectId];
@@ -348,7 +348,8 @@ library OrderBookLib {
         // Calculate fees
         uint256 fee = (tradeValue * tradingFeeRate) / 10000;
         uint256 sellerReceives = tradeValue - fee;
-        
+        feeAmount = fee;
+
         // Transfer tokens
         IERC20(project.equityToken).safeTransfer(buyOrder.trader, tradedShares);
         IERC20(project.purchaseToken).safeTransfer(sellOrder.trader, sellerReceives);

@@ -10,7 +10,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 contract EquityToken is ERC20, ERC20Pausable, Ownable {
     uint256 public constant TOTAL_SHARES = 1_000_000 * 1e18; // total shares is 100% equity and the total supply of the token
     uint256 public sharesToSell; // shares to sell is the amount of shares that will be sold to the public
-    address public factory;
+    address public immutable factory;
 
     // Events
     event FactoryAdminSet(address indexed admin);
@@ -28,6 +28,7 @@ contract EquityToken is ERC20, ERC20Pausable, Ownable {
         require(SharesToSell <= TOTAL_SHARES, "Shares to sell must be less than or equal to total shares");
         sharesToSell = SharesToSell;
         factory = _factory;
+        require(factory != address(0), "Factory address cannot be 0");
         _mint(factory, _platformFee);
         _mint(initialOwner, TOTAL_SHARES - sharesToSell - _platformFee);
     }
@@ -73,8 +74,4 @@ contract EquityToken is ERC20, ERC20Pausable, Ownable {
         _unpause();
     }
 
-    /// @notice Override required by Solidity for multiple inheritance
-    function _update(address from, address to, uint256 value) internal override(ERC20, ERC20Pausable) {
-        super._update(from, to, value);
-    }
 }
