@@ -306,21 +306,8 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
 
         orderCounter++;
         
-        // Try to match orders immediately
-        OrderBookLib.matchOrdersForProject(
-            projects,
-            orders,
-            projectBuyOrders,
-            projectSellOrders,
-            projectTrades,
-            projectMarketStats,
-            projectId,
-            TRADING_FEE_RATE,
-            tradeCounter
-        );
+        matchOrders(projectId);
 
-        tradeCounter++;
-        
         return orderId;
     }
 
@@ -404,7 +391,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
     /// @param projectId Project to match orders for
     /// @return tradesExecuted Number of trades executed
     /// @return feeAmount Total fee amount collected
-    function matchOrders(uint256 projectId) external returns (uint256 tradesExecuted, uint256 feeAmount) {
+    function matchOrders(uint256 projectId) public returns (uint256 tradesExecuted, uint256 feeAmount) {
         (tradesExecuted, feeAmount) = OrderBookLib.matchOrdersForProject(
             projects,
             orders,
