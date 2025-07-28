@@ -83,10 +83,10 @@ abstract contract OrderBookLib is DataTypes {
         if (orderType == DataTypes.OrderType.BUY) {
             uint256 totalCost = shares * pricePerShare;
             IERC20(project.purchaseToken).safeTransferFrom(msg.sender, address(this), totalCost);
-            _insertBuyOrder(orderId, projectBuyOrders[projectId], orders);
+            _insertBuyOrder(orderId, projectBuyOrders[projectId]);
         } else {
             IERC20(project.equityToken).safeTransferFrom(msg.sender, address(this), shares);
-            _insertSellOrder(orderId, projectSellOrders[projectId], orders);
+            _insertSellOrder(orderId, projectSellOrders[projectId]);
         }
         
         orders[orderId] = newOrder;
@@ -148,17 +148,12 @@ abstract contract OrderBookLib is DataTypes {
                 sellOrder.status == DataTypes.OrderStatus.ACTIVE) {
                 
                 feeAmount = _executeTrade(
-                    projects,
-                    orders,
                     buyOrderIds,
                     sellOrderIds,
-                    projectTrades,
-                    projectMarketStats,
                     projectId,
                     bestBuyId,
                     bestSellId,
-                    tradingFeeRate,
-                    tradeCounter
+                    tradingFeeRate
                 );
                 tradesExecuted++;
             } else {

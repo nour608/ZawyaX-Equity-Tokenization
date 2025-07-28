@@ -32,29 +32,6 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
 
     uint256 public TradeFeeAmount;
 
-    // Mapping from project ID to Project struct
-    mapping(uint256 => Project) public projects;
-    
-    // Trading storage (centralized for all projects)
-    uint256 public orderCounter;
-    uint256 public tradeCounter;
-    
-    // Order storage: orderId => Order
-    mapping(uint256 => Order) public orders;
-    
-    // User orders: user => orderIds[]
-    mapping(address => uint256[]) public userOrders;
-    
-    // Project-specific order books: projectId => buyOrderIds[]
-    mapping(uint256 => uint256[]) public projectBuyOrders;
-    mapping(uint256 => uint256[]) public projectSellOrders;
-    
-    // Trading history: projectId => trades[]
-    mapping(uint256 => Trade[]) public projectTrades;
-    
-    // Market statistics: projectId => MarketStats
-    mapping(uint256 => MarketStats) public projectMarketStats;
-
     event ProjectCreated(
         uint256 indexed projectId,
         address indexed founder,
