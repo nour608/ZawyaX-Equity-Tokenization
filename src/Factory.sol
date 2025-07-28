@@ -65,9 +65,9 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
         PLATFORM_FEE = _platformFee;
         TRADING_FEE_RATE = _tradingFeeRate;
         projectCounter = 1;
-        orderCounter = 1;
-        tradeCounter = 1;
         orderBookLib = OrderBookLib(_orderBookLib);
+        orderBookLib.orderCounter = 1;
+        orderBookLib.tradeCounter = 1;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
     }
