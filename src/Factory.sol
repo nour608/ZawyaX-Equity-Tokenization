@@ -24,8 +24,8 @@ contract Factory is AccessControl, ReentrancyGuard, DataTypes {
     // Counter for project IDs
     uint256 public projectCounter;
 
-    uint256 public totalShares = 1_000_000; // 100% of the total shares
-    uint256 public BASIS_POINTS = 10_000; // 10_000 is 100%
+    uint256 public constant TOTAL_SHARES = 1_000_000; // 100% of the total shares
+    uint256 public constant BASIS_POINTS = 10_000; // 10_000 is 100%
     uint256 public PLATFORM_FEE; // (e.g., 500 = 5%) 
     uint256 public TRADING_FEE_RATE; // Global trading fee rate in basis points (e.g., 25 = 0.25%)
 
@@ -99,10 +99,10 @@ contract Factory is AccessControl, ReentrancyGuard, DataTypes {
     {
         require(valuationUSD > 0, "Valuation must be greater than 0");
         require(sharesToSell > 0, "Shares must be greater than 0");
-        require(sharesToSell <= totalShares, "Shares must be less than or equal to total shares");
+        require(sharesToSell <= TOTAL_SHARES, "Shares must be less than or equal to total shares");
         require(currencyManager.isCurrencyWhitelisted(_purchaseToken), "Purchase token not whitelisted");
 
-        uint256 platformFee = (totalShares * PLATFORM_FEE) / BASIS_POINTS;
+        uint256 platformFee = (TOTAL_SHARES * PLATFORM_FEE) / BASIS_POINTS;
     
         // project name + " Equity Token", e.g. "ZawyaX Equity Token"
         string memory name = string(abi.encodePacked(_name, " Equity Token"));
@@ -112,7 +112,7 @@ contract Factory is AccessControl, ReentrancyGuard, DataTypes {
         // Calculate price: (valuationUSD * 10^stableDecimals) / totalShares
         uint8 decimals = IERC20Metadata(_purchaseToken).decimals();
         uint256 stableUnit = 10 ** decimals;
-        uint256 price = (valuationUSD * stableUnit) / totalShares;
+        uint256 price = (valuationUSD * stableUnit) / TOTAL_SHARES;
 
         // Get next project ID
         projectId = projectCounter;
@@ -123,7 +123,7 @@ contract Factory is AccessControl, ReentrancyGuard, DataTypes {
             equityToken: address(token),
             purchaseToken: _purchaseToken,
             valuationUSD: valuationUSD,
-            totalShares: totalShares,
+            totalShares: TOTAL_SHARES,
             availableSharesToSell: sharesToSell,
             sharesSold: 0,
             pricePerShare: price,
@@ -135,7 +135,7 @@ contract Factory is AccessControl, ReentrancyGuard, DataTypes {
             secondaryMarketEnabled: false
         });
 
-        emit ProjectCreated(projectId, msg.sender, address(token), _purchaseToken, valuationUSD, totalShares, ipfsCID);
+        emit ProjectCreated(projectId, msg.sender, address(token), _purchaseToken, valuationUSD, TOTAL_SHARES, ipfsCID);
     }
 
     /// @notice Buy shares in a given project
