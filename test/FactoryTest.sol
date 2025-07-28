@@ -14,7 +14,6 @@ import {OrderBookLib} from "../src/libraries/OrderBookLib.sol";
 contract FactoryTest is Test {
     Factory public factory;
     UserRegistry public userRegistry;
-    OrderBookLib public orderBookLib;
 
     function setUp() public {
         factory = new Factory();

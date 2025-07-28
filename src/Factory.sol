@@ -24,7 +24,7 @@ contract Factory is AccessControl, ReentrancyGuard, DataTypes {
     // Counter for project IDs
     uint256 public projectCounter;
 
-    uint256 public constant TOTAL_SHARES = 1_000_000; // 100% of the total shares
+    uint256 public constant TOTAL_SHARES = 1_000_000 * 1e18; // 100% of the total shares
     uint256 public constant BASIS_POINTS = 10_000; // 10_000 is 100%
     uint256 public PLATFORM_FEE; // (e.g., 500 = 5%) 
     uint256 public TRADING_FEE_RATE; // Global trading fee rate in basis points (e.g., 25 = 0.25%)
@@ -102,6 +102,7 @@ contract Factory is AccessControl, ReentrancyGuard, DataTypes {
         require(sharesToSell <= TOTAL_SHARES, "Shares must be less than or equal to total shares");
         require(currencyManager.isCurrencyWhitelisted(_purchaseToken), "Purchase token not whitelisted");
 
+        // @audit : sharesToSell instead of TOTAL_SHARES
         uint256 platformFee = (TOTAL_SHARES * PLATFORM_FEE) / BASIS_POINTS;
     
         // project name + " Equity Token", e.g. "ZawyaX Equity Token"
@@ -112,7 +113,7 @@ contract Factory is AccessControl, ReentrancyGuard, DataTypes {
         // Calculate price: (valuationUSD * 10^stableDecimals) / totalShares
         uint8 decimals = IERC20Metadata(_purchaseToken).decimals();
         uint256 stableUnit = 10 ** decimals;
-        uint256 price = (valuationUSD * stableUnit) / TOTAL_SHARES;
+        uint256 price = (valuationUSD * stableUnit * 1e18) / TOTAL_SHARES;
 
         // Get next project ID
         projectId = projectCounter;
@@ -148,7 +149,7 @@ contract Factory is AccessControl, ReentrancyGuard, DataTypes {
         require(sharesAmount <= p.availableSharesToSell, "Not enough shares to sell");  // check if the project has enough shares to sell
 
         uint256 cost = sharesAmount * p.pricePerShare;
-        uint256 tokensToMint = sharesAmount * 1e18; // Equity tokens have 18 decimals
+        uint256 tokensToMint = sharesAmount; // Equity tokens have 18 decimals
 
         p.availableSharesToSell -= sharesAmount;
         p.sharesSold += sharesAmount;

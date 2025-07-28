@@ -8,7 +8,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 /// @title EquityToken
 /// @notice ERC-20 token representing project equity (shares) with pausable transfers
 contract EquityToken is ERC20, ERC20Pausable, Ownable {
-    uint256 public constant TOTAL_SHARES = 1_000_000; // total shares is 100% equity and the total supply of the token
+    uint256 public constant TOTAL_SHARES = 1_000_000 * 1e18; // total shares is 100% equity and the total supply of the token
     uint256 public sharesToSell; // shares to sell is the amount of shares that will be sold to the public
     address public factory;
 
