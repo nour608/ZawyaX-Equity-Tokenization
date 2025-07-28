@@ -10,8 +10,31 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
  * @notice Library containing order book logic for the Factory contract
  * @dev All functions operate on Factory's storage
  */
-library OrderBookLib {
+abstract contract OrderBookLib is DataTypes {
     using SafeERC20 for IERC20;
+
+    // Mapping from project ID to Project struct
+    mapping(uint256 => Project) public projects;
+    
+    // Trading storage (centralized for all projects)
+    uint256 public orderCounter;
+    uint256 public tradeCounter;
+    
+    // Order storage: orderId => Order
+    mapping(uint256 => Order) public orders;
+    
+    // User orders: user => orderIds[]
+    mapping(address => uint256[]) public userOrders;
+    
+    // Project-specific order books: projectId => buyOrderIds[]
+    mapping(uint256 => uint256[]) public projectBuyOrders;
+    mapping(uint256 => uint256[]) public projectSellOrders;
+    
+    // Trading history: projectId => trades[]
+    mapping(uint256 => Trade[]) public projectTrades;
+    
+    // Market statistics: projectId => MarketStats
+    mapping(uint256 => MarketStats) public projectMarketStats;
 
     // Events
     event OrderPlaced(uint256 indexed orderId, uint256 indexed projectId, address indexed trader, DataTypes.OrderType orderType, uint256 shares, uint256 price);
@@ -24,17 +47,11 @@ library OrderBookLib {
      * @notice Place a limit order
      */
     function placeLimitOrder(
-        mapping(uint256 => DataTypes.Project) storage projects,
-        mapping(uint256 => DataTypes.Order) storage orders,
-        mapping(address => uint256[]) storage userOrders,
-        mapping(uint256 => uint256[]) storage projectBuyOrders,
-        mapping(uint256 => uint256[]) storage projectSellOrders,
         uint256 projectId,
         DataTypes.OrderType orderType,
         uint256 shares,
         uint256 pricePerShare,
-        uint256 expirationTime,
-        uint256 orderCounter
+        uint256 expirationTime
     ) external returns (uint256 orderId) {
         DataTypes.Project storage project = projects[projectId];
         require(project.exists, "Project does not exist");
@@ -84,10 +101,6 @@ library OrderBookLib {
      * @notice Cancel an order
      */
     function cancelOrder(
-        mapping(uint256 => DataTypes.Project) storage projects,
-        mapping(uint256 => DataTypes.Order) storage orders,
-        mapping(uint256 => uint256[]) storage projectBuyOrders,
-        mapping(uint256 => uint256[]) storage projectSellOrders,
         uint256 orderId
     ) external {
         DataTypes.Order storage order = orders[orderId];
@@ -114,15 +127,8 @@ library OrderBookLib {
      * @notice Match orders for a specific project
      */
     function matchOrdersForProject(
-        mapping(uint256 => DataTypes.Project) storage projects,
-        mapping(uint256 => DataTypes.Order) storage orders,
-        mapping(uint256 => uint256[]) storage projectBuyOrders,
-        mapping(uint256 => uint256[]) storage projectSellOrders,
-        mapping(uint256 => DataTypes.Trade[]) storage projectTrades,
-        mapping(uint256 => DataTypes.MarketStats) storage projectMarketStats,
         uint256 projectId,
-        uint256 tradingFeeRate,
-        uint256 tradeCounter
+        uint256 tradingFeeRate
     ) external returns (uint256 tradesExecuted, uint256 feeAmount) {
         uint256[] storage buyOrderIds = projectBuyOrders[projectId];
         uint256[] storage sellOrderIds = projectSellOrders[projectId];
@@ -165,9 +171,6 @@ library OrderBookLib {
      * @notice Get order book depth for a project
      */
     function getOrderBookDepth(
-        mapping(uint256 => DataTypes.Order) storage orders,
-        mapping(uint256 => uint256[]) storage projectBuyOrders,
-        mapping(uint256 => uint256[]) storage projectSellOrders,
         uint256 projectId,
         uint256 depth
     ) external view returns (
@@ -210,7 +213,6 @@ library OrderBookLib {
      * @notice Get market price for a project
      */
     function getMarketPrice(
-        mapping(uint256 => DataTypes.MarketStats) storage projectMarketStats,
         uint256 projectId
     ) external view returns (uint256) {
         return projectMarketStats[projectId].lastPrice;
@@ -220,8 +222,6 @@ library OrderBookLib {
      * @notice Get user's orders for a project
      */
     function getUserOrders(
-        mapping(uint256 => DataTypes.Order) storage orders,
-        mapping(address => uint256[]) storage userOrders,
         address user,
         uint256 projectId
     ) external view returns (DataTypes.Order[] memory userProjectOrders) {
@@ -254,8 +254,7 @@ library OrderBookLib {
     // Internal helper functions
     function _insertBuyOrder(
         uint256 orderId,
-        uint256[] storage buyOrderIds,
-        mapping(uint256 => DataTypes.Order) storage orders
+        uint256[] storage buyOrderIds
     ) internal {
         DataTypes.Order storage newOrder = orders[orderId];
         uint256 insertIndex = buyOrderIds.length;
@@ -278,8 +277,7 @@ library OrderBookLib {
 
     function _insertSellOrder(
         uint256 orderId,
-        uint256[] storage sellOrderIds,
-        mapping(uint256 => DataTypes.Order) storage orders
+        uint256[] storage sellOrderIds
     ) internal {
         DataTypes.Order storage newOrder = orders[orderId];
         uint256 insertIndex = sellOrderIds.length;
@@ -325,17 +323,12 @@ library OrderBookLib {
     }
 
     function _executeTrade(
-        mapping(uint256 => DataTypes.Project) storage projects,
-        mapping(uint256 => DataTypes.Order) storage orders,
         uint256[] storage buyOrderIds,
         uint256[] storage sellOrderIds,
-        mapping(uint256 => DataTypes.Trade[]) storage projectTrades,
-        mapping(uint256 => DataTypes.MarketStats) storage projectMarketStats,
         uint256 projectId,
         uint256 buyOrderId,
         uint256 sellOrderId,
-        uint256 tradingFeeRate,
-        uint256 tradeCounter
+        uint256 tradingFeeRate
     ) internal returns (uint256 feeAmount) {
         DataTypes.Order storage buyOrder = orders[buyOrderId];
         DataTypes.Order storage sellOrder = orders[sellOrderId];

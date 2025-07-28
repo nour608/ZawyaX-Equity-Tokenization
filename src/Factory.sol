@@ -15,8 +15,8 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
     using SafeERC20 for IERC20;
-    using OrderBookLib for mapping(uint256 => Project);
-
+    
+    OrderBookLib public orderBookLib;
     UserRegistry public userRegistry;
     ICurrencyManager public currencyManager;
 
@@ -35,8 +35,6 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
     // Mapping from project ID to Project struct
     mapping(uint256 => Project) public projects;
     
-
-    // @todo : make the oderId and tradeId unique for each project
     // Trading storage (centralized for all projects)
     uint256 public orderCounter;
     uint256 public tradeCounter;
@@ -72,6 +70,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
     event ProjectExists(uint256 indexed projectId, bool exists);
     event SecondaryMarketEnabled(uint256 indexed projectId, address indexed orderBook, uint256 tradingFeeRate);
     event SecondaryMarketDisabled(uint256 indexed projectId);
+    event OrderBookLibSet(address indexed orderBookLib);
 
     modifier onlyFactoryAdmin() {
         require(hasRole(ADMIN_ROLE, msg.sender), "Only factory admin can call this function");
@@ -83,7 +82,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
         _;
     }
 
-    constructor(address _userRegistry, address _currencyManager, uint256 _platformFee, uint256 _tradingFeeRate) {
+    constructor(address _userRegistry, address _currencyManager, uint256 _platformFee, uint256 _tradingFeeRate, address _orderBookLib) {
         currencyManager = ICurrencyManager(_currencyManager);
         userRegistry = UserRegistry(_userRegistry);
         PLATFORM_FEE = _platformFee;
@@ -91,6 +90,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
         projectCounter = 1;
         orderCounter = 1;
         tradeCounter = 1;
+        orderBookLib = OrderBookLib(_orderBookLib);
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
     }
@@ -474,6 +474,11 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
     function setProjectExists(uint256 projectId, bool _exists) external onlyRole(DEFAULT_ADMIN_ROLE) {
         projects[projectId].exists = _exists;
         emit ProjectExists(projectId, _exists);
+    }
+
+    function setOrderBookLib(address _orderBookLib) external onlyRole(ADMIN_ROLE) {
+        orderBookLib = OrderBookLib(_orderBookLib);
+        emit OrderBookLibSet(address(_orderBookLib));
     }
 }
 
