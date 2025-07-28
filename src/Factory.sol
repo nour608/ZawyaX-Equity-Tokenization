@@ -11,8 +11,9 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
-contract Factory is AccessControl, ReentrancyGuard, DataTypes {
+contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
     using SafeERC20 for IERC20;
     using OrderBookLib for mapping(uint256 => Project);
 
@@ -441,6 +442,15 @@ contract Factory is AccessControl, ReentrancyGuard, DataTypes {
         return token.paused();
     }
 
+    /// @notice Pause the factory
+    function pause() external onlyRole(ADMIN_ROLE) {
+        _pause();
+    }
+
+    /// @notice Unpause the factory
+    function unpause() external onlyRole(ADMIN_ROLE) {
+        _unpause();
+    }
     /************************************************
      *                 Admin functions               *
      *************************************************/

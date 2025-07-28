@@ -2,12 +2,13 @@
 pragma solidity 0.8.25;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {ERC20Pausable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Pausable.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title EquityToken
 /// @notice ERC-20 token representing project equity (shares) with pausable transfers
-contract EquityToken is ERC20, ERC20Pausable, Ownable {
+contract EquityToken is ERC20, Pausable, Ownable {
     uint256 public constant TOTAL_SHARES = 1_000_000 * 1e18; // total shares is 100% equity and the total supply of the token
     uint256 public sharesToSell; // shares to sell is the amount of shares that will be sold to the public
     address public immutable factory;
