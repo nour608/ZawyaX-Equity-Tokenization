@@ -16,25 +16,14 @@ abstract contract OrderBookLib is DataTypes {
     // Mapping from project ID to Project struct
     mapping(uint256 => Project) public projects;
     
-    // Trading storage (centralized for all projects)
-    uint256 public orderCounter;
-    uint256 public tradeCounter;
-    
-    // Order storage: orderId => Order
     mapping(uint256 => Order) public orders;
-    
-    // User orders: user => orderIds[]
     mapping(address => uint256[]) public userOrders;
-    
-    // Project-specific order books: projectId => buyOrderIds[]
     mapping(uint256 => uint256[]) public projectBuyOrders;
     mapping(uint256 => uint256[]) public projectSellOrders;
-    
-    // Trading history: projectId => trades[]
     mapping(uint256 => Trade[]) public projectTrades;
-    
-    // Market statistics: projectId => MarketStats
     mapping(uint256 => MarketStats) public projectMarketStats;
+    uint256 public orderCounter;
+    uint256 public tradeCounter;
 
     // Events
     event OrderPlaced(uint256 indexed orderId, uint256 indexed projectId, address indexed trader, DataTypes.OrderType orderType, uint256 shares, uint256 price);
@@ -52,7 +41,7 @@ abstract contract OrderBookLib is DataTypes {
         uint256 shares,
         uint256 pricePerShare,
         uint256 expirationTime
-    ) external returns (uint256 orderId) {
+    ) external virtual returns (uint256 orderId) {
         DataTypes.Project storage project = projects[projectId];
         require(project.exists, "Project does not exist");
         require(project.secondaryMarketEnabled, "Secondary market disabled");
@@ -102,7 +91,7 @@ abstract contract OrderBookLib is DataTypes {
      */
     function cancelOrder(
         uint256 orderId
-    ) external {
+    ) external virtual {
         DataTypes.Order storage order = orders[orderId];
         require(order.trader == msg.sender, "Not your order");
         require(order.status == DataTypes.OrderStatus.ACTIVE || order.status == DataTypes.OrderStatus.PARTIALLY_FILLED, "Order not cancellable");
@@ -168,7 +157,7 @@ abstract contract OrderBookLib is DataTypes {
     function getOrderBookDepth(
         uint256 projectId,
         uint256 depth
-    ) external view returns (
+    ) external view virtual returns (
         uint256[] memory buyPrices,
         uint256[] memory buyShares,
         uint256[] memory sellPrices,
@@ -209,7 +198,7 @@ abstract contract OrderBookLib is DataTypes {
      */
     function getMarketPrice(
         uint256 projectId
-    ) external view returns (uint256) {
+    ) external view virtual returns (uint256) {
         return projectMarketStats[projectId].lastPrice;
     }
 
@@ -219,7 +208,7 @@ abstract contract OrderBookLib is DataTypes {
     function getUserOrders(
         address user,
         uint256 projectId
-    ) external view returns (DataTypes.Order[] memory userProjectOrders) {
+    ) external view virtual returns (DataTypes.Order[] memory userProjectOrders) {
         uint256[] storage orderIds = userOrders[user];
         
         // Count orders for this project
