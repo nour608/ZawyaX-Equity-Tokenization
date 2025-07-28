@@ -35,9 +35,11 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
     // Mapping from project ID to Project struct
     mapping(uint256 => Project) public projects;
     
+
+    // @todo : make the oderId and tradeId unique for each project
     // Trading storage (centralized for all projects)
-    uint256 public orderCounter = 1;
-    uint256 public tradeCounter = 1;
+    uint256 public orderCounter;
+    uint256 public tradeCounter;
     
     // Order storage: orderId => Order
     mapping(uint256 => Order) public orders;
@@ -87,6 +89,8 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
         PLATFORM_FEE = _platformFee;
         TRADING_FEE_RATE = _tradingFeeRate;
         projectCounter = 1;
+        orderCounter = 1;
+        tradeCounter = 1;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
     }
@@ -285,6 +289,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
         uint256 pricePerShare,
         uint256 expirationTime
     ) external nonReentrant returns (uint256 orderId) {
+
         orderId = OrderBookLib.placeLimitOrder(
             projects,
             orders,
@@ -295,8 +300,11 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
             orderType,
             shares,
             pricePerShare,
-            expirationTime
+            expirationTime,
+            orderCounter
         );
+
+        orderCounter++;
         
         // Try to match orders immediately
         OrderBookLib.matchOrdersForProject(
@@ -307,8 +315,11 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
             projectTrades,
             projectMarketStats,
             projectId,
-            TRADING_FEE_RATE
+            TRADING_FEE_RATE,
+            tradeCounter
         );
+        
+        tradeCounter++;
         
         return orderId;
     }

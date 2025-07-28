@@ -33,7 +33,8 @@ library OrderBookLib {
         DataTypes.OrderType orderType,
         uint256 shares,
         uint256 pricePerShare,
-        uint256 expirationTime
+        uint256 expirationTime,
+        uint256 orderCounter
     ) external returns (uint256 orderId) {
         DataTypes.Project storage project = projects[projectId];
         require(project.exists, "Project does not exist");
@@ -43,7 +44,7 @@ library OrderBookLib {
         require(expirationTime == 0 || expirationTime > block.timestamp, "Invalid expiration");
         
         // Generate unique order ID using timestamp + project + user
-        orderId = uint256(keccak256(abi.encodePacked(block.timestamp, projectId, msg.sender, block.number)));
+        orderId = uint256(keccak256(abi.encodePacked(block.timestamp, projectId, msg.sender, orderCounter)));
         
         // Create order
         DataTypes.Order memory newOrder = DataTypes.Order({
@@ -120,7 +121,8 @@ library OrderBookLib {
         mapping(uint256 => DataTypes.Trade[]) storage projectTrades,
         mapping(uint256 => DataTypes.MarketStats) storage projectMarketStats,
         uint256 projectId,
-        uint256 tradingFeeRate
+        uint256 tradingFeeRate,
+        uint256 tradeCounter
     ) external returns (uint256 tradesExecuted, uint256 feeAmount) {
         uint256[] storage buyOrderIds = projectBuyOrders[projectId];
         uint256[] storage sellOrderIds = projectSellOrders[projectId];
@@ -149,7 +151,8 @@ library OrderBookLib {
                     projectId,
                     bestBuyId,
                     bestSellId,
-                    tradingFeeRate
+                    tradingFeeRate,
+                    tradeCounter
                 );
                 tradesExecuted++;
             } else {
@@ -331,7 +334,8 @@ library OrderBookLib {
         uint256 projectId,
         uint256 buyOrderId,
         uint256 sellOrderId,
-        uint256 tradingFeeRate
+        uint256 tradingFeeRate,
+        uint256 tradeCounter
     ) internal returns (uint256 feeAmount) {
         DataTypes.Order storage buyOrder = orders[buyOrderId];
         DataTypes.Order storage sellOrder = orders[sellOrderId];
@@ -379,7 +383,7 @@ library OrderBookLib {
         }
         
         // Record trade
-        uint256 tradeId = uint256(keccak256(abi.encodePacked(block.timestamp, projectId, buyOrderId, sellOrderId)));
+        uint256 tradeId = uint256(keccak256(abi.encodePacked(block.timestamp, projectId, buyOrderId, sellOrderId, tradeCounter)));
         DataTypes.Trade memory newTrade = DataTypes.Trade({
             tradeId: tradeId,
             buyOrderId: buyOrderId,
