@@ -55,7 +55,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
     }
 
     modifier onlyProjectFounder(uint256 projectId) {
-        require(projects[projectId].founder == msg.sender, "Only project founder can call this function");
+        require(orderBookLib.projects[projectId].founder == msg.sender, "Only project founder can call this function");
         _;
     }
 
@@ -104,7 +104,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
         projectCounter++;
 
         // Initialize project struct
-        projects[projectId] = Project({
+        orderBookLib.projects[projectId] = Project({
             equityToken: address(token),
             purchaseToken: _purchaseToken,
             valuationUSD: valuationUSD,
@@ -127,7 +127,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
     /// @param projectId ID of the project
     /// @param sharesAmount Number of shares to buy
     function buyShares(uint256 projectId, uint256 sharesAmount) external {
-        Project storage p = projects[projectId];
+        Project storage p = orderBookLib.projects[projectId];
         require(p.exists, "Project does not exist");
         require(sharesAmount > 0, "Must buy at least 1 share");
         require(sharesAmount <= p.availableSharesToSell, "Not enough shares to sell");  // check if the project has enough shares to sell
@@ -150,7 +150,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
     /// @notice Developer withdraws all raised funds for their project
     /// @param projectId ID of the project
     function withdrawFunds(uint256 projectId, uint256 amount, address to) external {
-        Project storage p = projects[projectId];
+        Project storage p = orderBookLib.projects[projectId];
         require(p.exists, "Project does not exist");
 
         if (!p.verified) {
@@ -188,11 +188,11 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
     /// @notice Check if a project exists
     /// @param projectId ID of the project
     function projectExists(uint256 projectId) external view returns (bool) {
-        return projects[projectId].exists;
+        return orderBookLib.projects[projectId].exists;
     }
 
     function getProject(uint256 projectId) external view returns (Project memory) {
-        return projects[projectId];
+        return orderBookLib.projects[projectId];
     }
 
     /************************************************
@@ -202,7 +202,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
     /// @notice Enable secondary market trading for a project
     /// @param projectId Project to enable trading for
     function enableSecondaryMarket(uint256 projectId) external {
-        Project storage project = projects[projectId];
+        Project storage project = orderBookLib.projects[projectId];
         require(project.exists, "Project does not exist");
         require(project.founder == msg.sender, "Only founder can enable market");
         require(!project.secondaryMarketEnabled, "Market already enabled");
@@ -212,8 +212,8 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
         // Update project to enable secondary market
         project.secondaryMarketEnabled = true;
         
-        // Initialize market stats
-        projectMarketStats[projectId].lastUpdateTime = block.timestamp;
+        // Initialize market stats  
+        orderBookLib.projectMarketStats[projectId].lastUpdateTime = block.timestamp;
         
         emit SecondaryMarketEnabled(projectId, address(this), TRADING_FEE_RATE);
     }
@@ -221,7 +221,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
     /// @notice Disable secondary market trading for a project
     /// @param projectId Project to disable trading for
     function disableSecondaryMarket(uint256 projectId) external {
-        Project storage project = projects[projectId];
+        Project storage project = orderBookLib.projects[projectId];
         require(project.exists, "Project does not exist");
         require(project.founder == msg.sender, "Only founder can disable market");
         require(project.secondaryMarketEnabled, "Market not enabled");
@@ -236,12 +236,12 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
     /// @param projectId Project ID
     /// @return Current market price (returns initial price if no trades yet)
     function getMarketPrice(uint256 projectId) external view returns (uint256) {
-        Project storage project = projects[projectId];
+        Project storage project = orderBookLib.projects[projectId];
         if (!project.secondaryMarketEnabled) {
             return project.pricePerShare; // Return initial price if no secondary market
         }
         
-        uint256 marketPrice = OrderBookLib.getMarketPrice(projectMarketStats, projectId);
+        uint256 marketPrice = orderBookLib.getMarketPrice(projectId);
         return marketPrice > 0 ? marketPrice : project.pricePerShare;
     }
 
@@ -249,7 +249,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
     /// @param projectId Project ID
     /// @return True if secondary market is enabled
     function isSecondaryMarketEnabled(uint256 projectId) external view returns (bool) {
-        return projects[projectId].secondaryMarketEnabled;
+        return orderBookLib.projects[projectId].secondaryMarketEnabled;
     }
 
     /// @notice Place a limit order on the secondary market
@@ -268,20 +268,14 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
     ) external nonReentrant returns (uint256 orderId) {
 
         orderId = OrderBookLib.placeLimitOrder(
-            projects,
-            orders,
-            userOrders,
-            projectBuyOrders,
-            projectSellOrders,
             projectId,
             orderType,
             shares,
             pricePerShare,
-            expirationTime,
-            orderCounter
+            expirationTime
         );
 
-        orderCounter++;
+        orderBookLib.orderCounter++;
         
         matchOrders(projectId);
 
@@ -292,10 +286,6 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
     /// @param orderId Order to cancel
     function cancelOrder(uint256 orderId) external nonReentrant {
         OrderBookLib.cancelOrder(
-            projects,
-            orders,
-            projectBuyOrders,
-            projectSellOrders,
             orderId
         );
     }
@@ -314,9 +304,6 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
         uint256[] memory sharesToSell
     ) {
         return OrderBookLib.getOrderBookDepth(
-            orders,
-            projectBuyOrders,
-            projectSellOrders,
             projectId,
             depth
         );
@@ -328,8 +315,6 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
     /// @return userOrders Array of user's orders
     function getUserOrders(address user, uint256 projectId) external view returns (Order[] memory) {
         return OrderBookLib.getUserOrders(
-            orders,
-            userOrders,
             user,
             projectId
         );
