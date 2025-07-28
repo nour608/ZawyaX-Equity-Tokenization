@@ -318,7 +318,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
             TRADING_FEE_RATE,
             tradeCounter
         );
-        
+
         tradeCounter++;
         
         return orderId;
@@ -413,8 +413,10 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes {
             projectTrades,
             projectMarketStats,
             projectId,
-            TRADING_FEE_RATE
+            TRADING_FEE_RATE,
+            tradeCounter
         );
+        tradeCounter++;
         TradeFeeAmount += feeAmount;
     }
 
