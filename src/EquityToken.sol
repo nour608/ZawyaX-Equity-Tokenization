@@ -23,7 +23,7 @@ contract EquityToken is ERC20, Pausable, Ownable {
 
     /// @param initialOwner Address that will own this token contract (project developer)
     /// @param SharesToSell Total share supply (whole units, no decimals)
-    constructor(string memory _name, string memory _symbol,address initialOwner, address _factory, uint256 SharesToSell, uint256 _platformFee) Ownable(initialOwner)
+    constructor(string memory _name, string memory _symbol, address initialOwner, address _factory, uint256 SharesToSell, uint256 _platformFee) Ownable(initialOwner)
         ERC20(_name, _symbol)
     {
         require(SharesToSell <= TOTAL_SHARES, "Shares to sell must be less than or equal to total shares");
@@ -32,6 +32,7 @@ contract EquityToken is ERC20, Pausable, Ownable {
         require(factory != address(0), "Factory address cannot be 0");
         _mint(factory, _platformFee);
         _mint(initialOwner, TOTAL_SHARES - sharesToSell - _platformFee);
+        _pause(); // pause the token transfers
     }
 
     function mint(address to, uint256 amount) public onlyFactory {

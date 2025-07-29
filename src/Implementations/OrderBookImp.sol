@@ -6,11 +6,11 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
- * @title OrderBookLib
+ * @title OrderBook
  * @notice Library containing order book logic for the Factory contract
  * @dev All functions operate on Factory's storage
  */
-abstract contract OrderBookLib is DataTypes {
+abstract contract OrderBook is DataTypes {
     using SafeERC20 for IERC20;
 
     // Mapping from project ID to Project struct

@@ -69,6 +69,7 @@ interface DataTypes {
      **************************/
 
      struct Project {
+        string name;
         address equityToken;      // Deployed ERC20 token, this is the token that represents the project's equity
         address purchaseToken;    // this is the token that will be used to purchase the project's equity
         uint256 valuationUSD;     // Project valuation in USD (no decimals)

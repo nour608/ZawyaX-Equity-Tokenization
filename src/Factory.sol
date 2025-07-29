@@ -4,7 +4,7 @@ pragma solidity 0.8.25;
 import {DataTypes} from "./utils/DataTypes.sol";
 import {UserRegistry} from "./UserRegistry.sol";
 import {ICurrencyManager} from "./interfaces/ICurrencyManager.sol";
-import {OrderBookLib} from "./libraries/OrderBookLib.sol";
+import {OrderBook} from "./Implementations/OrderBookImp.sol";
 import {EquityToken} from "./EquityToken.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
@@ -13,19 +13,19 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
-contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBookLib {
+contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBook {
     using SafeERC20 for IERC20;
     
-    OrderBookLib public orderBookLib;
     UserRegistry public userRegistry;
     ICurrencyManager public currencyManager;
+    OrderBook public orderBook;
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
     // Counter for project IDs
     uint256 public projectCounter;
 
-    uint256 public constant TOTAL_SHARES = 1_000_000 * 1e18; // 100% of the total shares
+    uint256 public constant TOTAL_SHARES = 1_000_000 * 1e18; // 100% of the total shares // @alqaqa : check this
     uint256 public constant BASIS_POINTS = 10_000; // 10_000 is 100%
     uint256 public PLATFORM_FEE; // (e.g., 500 = 5%) 
     uint256 public TRADING_FEE_RATE; // Global trading fee rate in basis points (e.g., 25 = 0.25%)
@@ -46,8 +46,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
     event ProjectVerified(uint256 indexed projectId, bool verified);
     event ProjectExists(uint256 indexed projectId, bool exists);
     event SecondaryMarketEnabled(uint256 indexed projectId, address indexed orderBook, uint256 tradingFeeRate);
-    event SecondaryMarketDisabled(uint256 indexed projectId);
-    event OrderBookLibSet(address indexed orderBookLib);
+    event FeesWithdrawn(address indexed to, address indexed token, uint256 amount);
 
     modifier onlyFactoryAdmin() {
         require(hasRole(ADMIN_ROLE, msg.sender), "Only factory admin can call this function");
@@ -59,13 +58,17 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
         _;
     }
 
-    constructor(address _userRegistry, address _currencyManager, uint256 _platformFee, uint256 _tradingFeeRate, address _orderBookLib) {
+    modifier onlyProjectFounderOrAdmin(uint256 projectId) {
+        require(projects[projectId].founder == msg.sender || hasRole(ADMIN_ROLE, msg.sender) || hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Only project founder or admin can call this function");
+        _;
+    }
+
+    constructor(address _userRegistry, address _currencyManager, uint256 _platformFee, uint256 _tradingFeeRate) {
         currencyManager = ICurrencyManager(_currencyManager);
         userRegistry = UserRegistry(_userRegistry);
         PLATFORM_FEE = _platformFee;
         TRADING_FEE_RATE = _tradingFeeRate;
         projectCounter = 1;
-        orderBookLib = OrderBookLib(_orderBookLib);
         orderCounter = 1; 
         tradeCounter = 1;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -86,8 +89,8 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
         require(sharesToSell <= TOTAL_SHARES, "Shares must be less than or equal to total shares");
         require(currencyManager.isCurrencyWhitelisted(_purchaseToken), "Purchase token not whitelisted");
 
-        // @audit : sharesToSell instead of TOTAL_SHARES
-        uint256 platformFee = (TOTAL_SHARES * PLATFORM_FEE) / BASIS_POINTS;
+        // platform fee is a percentage of the shares to sell
+        uint256 platformFee = (sharesToSell * PLATFORM_FEE) / BASIS_POINTS;
     
         // project name + " Equity Token", e.g. "ZawyaX Equity Token"
         string memory name = string(abi.encodePacked(_name, " Equity Token"));
@@ -97,7 +100,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
         // Calculate price: (valuationUSD * 10^stableDecimals) / totalShares
         uint8 decimals = IERC20Metadata(_purchaseToken).decimals();
         uint256 stableUnit = 10 ** decimals;
-        uint256 price = (valuationUSD * stableUnit * 1e18) / TOTAL_SHARES;
+        uint256 price = (valuationUSD * stableUnit) / TOTAL_SHARES; // @alqaqa : check this 
 
         // Get next project ID
         projectId = projectCounter;
@@ -105,6 +108,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
 
         // Initialize project struct
         projects[projectId] = Project({
+            name: _name,
             equityToken: address(token),
             purchaseToken: _purchaseToken,
             valuationUSD: valuationUSD,
@@ -164,12 +168,12 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
             IERC20(p.purchaseToken).safeTransfer(to, amount);
             emit FundsWithdrawn(projectId, amount, to, msg.sender);
         } else if (p.verified) {
-            require(hasRole(ADMIN_ROLE, msg.sender), "Not factory admin");  
+            require(hasRole(ADMIN_ROLE, msg.sender) || hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Not factory admin");  
             require(amount > 0, "Amount must be greater than 0");
             require(amount <= p.availableFunds, "Not enough funds to withdraw");
             p.availableFunds -= amount;
             if (to == address(0)) {
-                revert("Invalid to address");
+                to = msg.sender;
             }
             IERC20(p.purchaseToken).safeTransfer(to, amount);
             emit FundsWithdrawn(projectId, amount, to, msg.sender);
@@ -201,14 +205,12 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
 
     /// @notice Enable secondary market trading for a project
     /// @param projectId Project to enable trading for
-    function enableSecondaryMarket(uint256 projectId) external {
+    function enableSecondaryMarket(uint256 projectId) external onlyProjectFounderOrAdmin(projectId) {
         Project storage project = projects[projectId];
         require(project.exists, "Project does not exist");
-        require(project.founder == msg.sender, "Only founder can enable market");
         require(!project.secondaryMarketEnabled, "Market already enabled");
-        
-        //@todo : add a check if the Project Equity Token is not paused on transfer
-        
+        require(!isProjectPaused(projectId), "Project Equity Token Transfers are paused");
+
         // Update project to enable secondary market
         project.secondaryMarketEnabled = true;
         
@@ -216,20 +218,6 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
         projectMarketStats[projectId].lastUpdateTime = block.timestamp;
         
         emit SecondaryMarketEnabled(projectId, address(this), TRADING_FEE_RATE);
-    }
-
-    /// @notice Disable secondary market trading for a project
-    /// @param projectId Project to disable trading for
-    function disableSecondaryMarket(uint256 projectId) external {
-        Project storage project = projects[projectId];
-        require(project.exists, "Project does not exist");
-        require(project.founder == msg.sender, "Only founder can disable market");
-        require(project.secondaryMarketEnabled, "Market not enabled");
-        
-        project.secondaryMarketEnabled = false;
-        // Note: OrderBook contract remains deployed but trading is logically disabled
-        
-        emit SecondaryMarketDisabled(projectId);
     }
 
     /// @notice Get market price for a project
@@ -241,7 +229,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
             return project.pricePerShare; // Return initial price if no secondary market
         }
         
-        uint256 marketPrice = orderBookLib.getMarketPrice(projectId);
+        uint256 marketPrice = projectMarketStats[projectId].lastPrice;
         return marketPrice > 0 ? marketPrice : project.pricePerShare;
     }
 
@@ -267,7 +255,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
         uint256 expirationTime
     ) external nonReentrant override returns (uint256 orderId) {
 
-        orderId = orderBookLib.placeLimitOrder(
+        orderId = orderBook.placeLimitOrder(
             projectId,
             orderType,
             shares,
@@ -285,9 +273,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
     /// @notice Cancel an active order
     /// @param orderId Order to cancel
     function cancelOrder(uint256 orderId) external nonReentrant override {
-        orderBookLib.cancelOrder(
-            orderId
-        );
+        orderBook.cancelOrder(orderId);
     }
 
     /// @notice Get order book depth for a project
@@ -303,10 +289,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
         uint256[] memory sellPrices,
         uint256[] memory sharesToSell
     ) {
-        return orderBookLib.getOrderBookDepth(
-            projectId,
-            depth
-        );
+        return orderBook.getOrderBookDepth(projectId, depth);
     }
 
     /// @notice Get user's active orders for a project
@@ -314,10 +297,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
     /// @param projectId Project ID
     /// @return userOrders Array of user's orders
     function getUserOrders(address user, uint256 projectId) external view override returns (Order[] memory) {
-        return orderBookLib.getUserOrders(
-            user,
-            projectId
-        );
+        return orderBook.getUserOrders(user, projectId);
     }
 
     /// @notice Get trading history for a project
@@ -354,10 +334,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
     /// @return tradesExecuted Number of trades executed
     /// @return feeAmount Total fee amount collected
     function matchOrders(uint256 projectId) public returns (uint256 tradesExecuted, uint256 feeAmount) {
-        (tradesExecuted, feeAmount) = orderBookLib.matchOrdersForProject(
-            projectId,
-            TRADING_FEE_RATE    
-        );
+        (tradesExecuted, feeAmount) = orderBook.matchOrdersForProject(projectId, TRADING_FEE_RATE);
         tradeCounter++;
         TradeFeeAmount += feeAmount;
     }
@@ -389,7 +366,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
     /// @notice Check if a project is paused
     /// @param projectId Project ID to check
     /// @return True if paused
-    function isProjectPaused(uint256 projectId) external view returns (bool) {
+    function isProjectPaused(uint256 projectId) public view returns (bool) {
         Project storage project = projects[projectId];
         require(project.exists, "Project does not exist");
         
@@ -409,6 +386,19 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
     /************************************************
      *                 Admin functions               *
      *************************************************/
+    
+    function withdrawFees(address to, address token, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(amount > 0, "Amount must be greater than 0");
+        require(token != address(0), "Invalid token address");
+        if (to == address(0)) {
+            to = msg.sender;
+            IERC20(token).safeTransfer(to, amount);
+            emit FeesWithdrawn(to, token, amount);
+        } else {
+            IERC20(token).safeTransfer(to, amount);
+            emit FeesWithdrawn(to, token, amount);
+        }
+    }
 
     function setPlatformFee(uint256 _platformFee) external onlyRole(DEFAULT_ADMIN_ROLE) {
         PLATFORM_FEE = _platformFee;
@@ -431,9 +421,5 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
         emit ProjectExists(projectId, _exists);
     }
 
-    function setOrderBookLib(address _orderBookLib) external onlyRole(ADMIN_ROLE) {
-        orderBookLib = OrderBookLib(_orderBookLib);
-        emit OrderBookLibSet(address(_orderBookLib));
-    }
 }
 

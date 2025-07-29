@@ -3,13 +3,13 @@ pragma solidity 0.8.25;
 
 import {Test} from "forge-std/Test.sol";
 import {DataTypes} from "../src/utils/DataTypes.sol";
-import {OrderBookLib} from "../src/libraries/OrderBookLib.sol";
+import {OrderBook} from "../src/Implementations/OrderBookImp.sol";
 
 /**
- * @title OrderBookLibTestHelper
- * @notice Helper contract to expose internal OrderBookLib functions for testing
+ * @title OrderBookTestHelper
+ * @notice Helper contract to expose internal OrderBook functions for testing
  */
-contract OrderBookLibTestHelper {
+contract OrderBookTestHelper {
     // Storage to mimic Factory contract structure
     mapping(uint256 => DataTypes.Order) public orders;
     mapping(uint256 => uint256[]) public projectBuyOrders;
@@ -73,11 +73,11 @@ contract OrderBookLibTestHelper {
 }
 
 /**
- * @title OrderBookLibTest
- * @notice Comprehensive test suite for OrderBookLib._insertBuyOrder function
+ * @title OrderBookTest
+ * @notice Comprehensive test suite for OrderBook._insertBuyOrder function
  */
-contract OrderBookLibTest is Test {
-    OrderBookLibTestHelper public helper;
+contract OrderBookTest is Test {
+    OrderBookTestHelper public helper;
     
     // Test addresses
     address public trader1 = makeAddr("trader1");
@@ -89,7 +89,7 @@ contract OrderBookLibTest is Test {
     uint256 public constant BASE_SHARES = 100;
 
     function setUp() public {
-        helper = new OrderBookLibTestHelper();
+        helper = new OrderBookTestHelper();
     }
 
     /**
