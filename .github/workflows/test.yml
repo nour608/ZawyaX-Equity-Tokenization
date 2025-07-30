@@ -16,25 +16,18 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-          fetch-depth: 0
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: stable
-          
       - name: Show Forge version
         run: |
           forge --version
 
-      - name: Install dependencies
-        run: |
-          forge install --no-commit
-
       - name: Run Forge fmt
         run: |
           forge fmt --check
-        continue-on-error: true
         id: fmt
 
       - name: Run Forge build
@@ -46,9 +39,3 @@ jobs:
         run: |
           forge test -vvv
         id: test
-
-      - name: Check fmt status
-        if: steps.fmt.outcome == 'failure'
-        run: |
-          echo "Code formatting check failed. Run 'forge fmt' locally to fix."
-          exit 1
