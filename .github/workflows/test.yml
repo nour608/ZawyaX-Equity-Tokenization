@@ -5,9 +5,6 @@ on:
   pull_request:
   workflow_dispatch:
 
-env:
-  FOUNDRY_PROFILE: ci
-
 jobs:
   check:
     name: Foundry project
@@ -21,9 +18,14 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: stable
+          
       - name: Show Forge version
         run: |
           forge --version
+
+      - name: Install dependencies
+        run: |
+          forge install
 
       - name: Run Forge fmt
         run: |
