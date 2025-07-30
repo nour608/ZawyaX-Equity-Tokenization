@@ -18,8 +18,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
     
     UserRegistry public userRegistry;
     ICurrencyManager public currencyManager;
-    // OrderBook public orderBook;
-
+    
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
     // Counter for project IDs
