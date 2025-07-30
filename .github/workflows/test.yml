@@ -29,11 +29,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          forge install
+          forge install --no-commit
 
       - name: Run Forge fmt
         run: |
           forge fmt --check
+        continue-on-error: true
         id: fmt
 
       - name: Run Forge build
@@ -45,3 +46,9 @@ jobs:
         run: |
           forge test -vvv
         id: test
+
+      - name: Check fmt status
+        if: steps.fmt.outcome == 'failure'
+        run: |
+          echo "Code formatting check failed. Run 'forge fmt' locally to fix."
+          exit 1
