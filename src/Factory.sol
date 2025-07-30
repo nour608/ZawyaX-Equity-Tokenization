@@ -201,11 +201,9 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
         return projects[projectId];
     }
 
-    /**
-     *
-     *            Secondary Market Functions         *
-     *
-     */
+    /*///////////////////////////////////////////////
+         Secondary Market Functions 
+    ///////////////////////////////////////////////*/
 
     /// @notice Enable secondary market trading for a project
     /// @param projectId Project to enable trading for
@@ -341,11 +339,9 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
         TradeFeeAmount += feeAmount;
     }
 
-    /**
-     *
-     *              Pause Management                *
-     *
-     */
+    /*///////////////////////////////////////////////
+                  Pause functions 
+    ///////////////////////////////////////////////*/
 
     /// @notice Pause a project's equity token (admin only)
     /// @param projectId Project ID to pause
@@ -388,11 +384,10 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
         _unpause();
     }
 
-    /**
-     *
-     *                 Admin functions               *
-     *
-     */
+    /*///////////////////////////////////////////////
+                  Admin functions 
+    ///////////////////////////////////////////////*/
+
     function withdrawFees(address to, address token, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(amount > 0, "Amount must be greater than 0");
         require(token != address(0), "Invalid token address");
@@ -427,11 +422,10 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
         emit ProjectExists(projectId, _exists);
     }
 
-    /**
-     *
-     *                 Internal functions            *
-     *
-     */
+    /*///////////////////////////////////////////////
+                  Internal functions 
+    ///////////////////////////////////////////////*/
+
     function _onlyFactoryAdmin() internal view {
         require(
             hasRole(ADMIN_ROLE, msg.sender) || hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
