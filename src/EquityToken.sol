@@ -11,13 +11,13 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 contract EquityToken is ERC20, Pausable, Ownable {
     uint256 public constant TOTAL_SHARES = 1_000_000 * 1e18; // total shares is 100% equity and the total supply of the token
     uint256 public sharesToSell; // shares to sell is the amount of shares that will be sold to the public
-    address public immutable factory;
+    address public immutable FACTORY;
 
     // Events
     event FactoryAdminSet(address indexed admin);
 
     modifier onlyFactory() {
-        require(msg.sender == factory, "Only factory can call this function");
+        _onlyFactory();
         _;
     }
 
@@ -28,9 +28,9 @@ contract EquityToken is ERC20, Pausable, Ownable {
     {
         require(SharesToSell <= TOTAL_SHARES, "Shares to sell must be less than or equal to total shares");
         sharesToSell = SharesToSell;
-        factory = _factory;
-        require(factory != address(0), "Factory address cannot be 0");
-        _mint(factory, _platformFee);
+        FACTORY = _factory;
+        require(FACTORY != address(0), "Factory address cannot be 0");
+        _mint(FACTORY, _platformFee);
         _mint(initialOwner, TOTAL_SHARES - sharesToSell - _platformFee);
         _pause(); // pause the token transfers
     }
@@ -66,14 +66,22 @@ contract EquityToken is ERC20, Pausable, Ownable {
 
     /// @notice Pause token transfers (only owner or factory)
     function pause() external {
-        require(msg.sender == owner() || msg.sender == factory, "Only owner or factory can pause");
+        require(msg.sender == owner() || msg.sender == FACTORY, "Only owner or factory can pause");
         _pause();
     }
 
     /// @notice Unpause token transfers (only owner or factory)
     function unpause() external {
-        require(msg.sender == owner() || msg.sender == factory, "Only owner or factory can unpause");
+        require(msg.sender == owner() || msg.sender == FACTORY, "Only owner or factory can unpause");
         _unpause();
+    }
+
+    /************************************************
+     *                 Internal functions            *
+     *************************************************/
+
+    function _onlyFactory() internal view {
+        require(msg.sender == FACTORY, "Only factory can call this function");
     }
 
 }

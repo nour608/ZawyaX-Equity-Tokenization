@@ -41,7 +41,7 @@ abstract contract OrderBook is DataTypes {
         uint256 shares,
         uint256 pricePerShare,
         uint256 expirationTime
-    ) external virtual returns (uint256 orderId) {
+    ) public virtual returns (uint256 orderId) {
         DataTypes.Project storage project = projects[projectId];
         require(project.exists, "Project does not exist");
         require(project.secondaryMarketEnabled, "Secondary market disabled");
@@ -61,7 +61,7 @@ abstract contract OrderBook is DataTypes {
             shares: shares,
             sharesRemaining: shares,
             pricePerShare: pricePerShare,
-            totalValue: shares * pricePerShare,
+            totalValue: (shares * pricePerShare) / 1e18,    // @alqaqa : check this
             timestamp: block.timestamp,
             expirationTime: expirationTime,
             status: DataTypes.OrderStatus.ACTIVE,
@@ -70,7 +70,7 @@ abstract contract OrderBook is DataTypes {
         
         // Lock tokens/funds
         if (orderType == DataTypes.OrderType.BUY) {
-            uint256 totalCost = shares * pricePerShare;
+            uint256 totalCost = (shares * pricePerShare) / 1e18;    // @alqaqa : check this
             IERC20(project.purchaseToken).safeTransferFrom(msg.sender, address(this), totalCost);
             _insertBuyOrder(orderId, projectBuyOrders[projectId]);
         } else {
@@ -91,7 +91,7 @@ abstract contract OrderBook is DataTypes {
      */
     function cancelOrder(
         uint256 orderId
-    ) external virtual {
+    ) public virtual {
         DataTypes.Order storage order = orders[orderId];
         require(order.trader == msg.sender, "Not your order");
         require(order.status == DataTypes.OrderStatus.ACTIVE || order.status == DataTypes.OrderStatus.PARTIALLY_FILLED, "Order not cancellable");
@@ -100,7 +100,7 @@ abstract contract OrderBook is DataTypes {
         
         // Return locked tokens/funds
         if (order.orderType == DataTypes.OrderType.BUY) {
-            uint256 refundAmount = order.sharesRemaining * order.pricePerShare;
+            uint256 refundAmount = (order.sharesRemaining * order.pricePerShare) / 1e18;    // @alqaqa : check this
             IERC20(project.purchaseToken).safeTransfer(order.trader, refundAmount);
             _removeBuyOrder(orderId, projectBuyOrders[order.projectId]);
         } else {
@@ -118,7 +118,7 @@ abstract contract OrderBook is DataTypes {
     function matchOrdersForProject(
         uint256 projectId,
         uint256 tradingFeeRate
-    ) external returns (uint256 tradesExecuted, uint256 feeAmount) {
+    ) public returns (uint256 tradesExecuted, uint256 feeAmount) {
         uint256[] storage buyOrderIds = projectBuyOrders[projectId];
         uint256[] storage sellOrderIds = projectSellOrders[projectId];
         
@@ -157,7 +157,7 @@ abstract contract OrderBook is DataTypes {
     function getOrderBookDepth(
         uint256 projectId,
         uint256 depth
-    ) external view virtual returns (
+    ) public view virtual returns (
         uint256[] memory buyPrices,
         uint256[] memory buyShares,
         uint256[] memory sellPrices,
@@ -177,7 +177,7 @@ abstract contract OrderBook is DataTypes {
         // Fill buy side (highest prices first)
         for (uint256 i = 0; i < buyCount; i++) {
             DataTypes.Order storage order = orders[buyOrderIds[i]];
-            if (order.status == DataTypes.OrderStatus.ACTIVE) {
+            if (order.status == DataTypes.OrderStatus.ACTIVE || order.status == DataTypes.OrderStatus.PARTIALLY_FILLED) {
                 buyPrices[i] = order.pricePerShare;
                 buyShares[i] = order.sharesRemaining;
             }
@@ -186,7 +186,7 @@ abstract contract OrderBook is DataTypes {
         // Fill sell side (lowest prices first)
         for (uint256 i = 0; i < sellCount; i++) {
             DataTypes.Order storage order = orders[sellOrderIds[i]];
-            if (order.status == DataTypes.OrderStatus.ACTIVE) {
+            if (order.status == DataTypes.OrderStatus.ACTIVE || order.status == DataTypes.OrderStatus.PARTIALLY_FILLED) {
                 sellPrices[i] = order.pricePerShare;
                 sellShares[i] = order.sharesRemaining;
             }
@@ -208,7 +208,7 @@ abstract contract OrderBook is DataTypes {
     function getUserOrders(
         address user,
         uint256 projectId
-    ) external view virtual returns (DataTypes.Order[] memory userProjectOrders) {
+    ) public view virtual returns (DataTypes.Order[] memory userProjectOrders) {
         uint256[] storage orderIds = userOrders[user];
         
         // Count orders for this project
@@ -324,7 +324,7 @@ abstract contract OrderBook is DataTypes {
         
         // Use seller's price (price improvement for buyer)
         uint256 tradePrice = sellOrder.pricePerShare;
-        uint256 tradeValue = tradedShares * tradePrice;
+        uint256 tradeValue = (tradedShares * tradePrice) / 1e18;    // @alqaqa : check this
         
         // Calculate fees
         uint256 fee = (tradeValue * tradingFeeRate) / 10000;
@@ -336,7 +336,7 @@ abstract contract OrderBook is DataTypes {
         IERC20(project.purchaseToken).safeTransfer(sellOrder.trader, sellerReceives);
         
         // Refund excess to buyer if they paid more
-        uint256 buyerPaid = tradedShares * buyOrder.pricePerShare;
+        uint256 buyerPaid = (tradedShares * buyOrder.pricePerShare) / 1e18;    // @alqaqa : check this
         if (buyerPaid > tradeValue) {
             IERC20(project.purchaseToken).safeTransfer(buyOrder.trader, buyerPaid - tradeValue);
         }

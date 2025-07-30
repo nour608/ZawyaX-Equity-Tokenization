@@ -18,7 +18,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
     
     UserRegistry public userRegistry;
     ICurrencyManager public currencyManager;
-    OrderBook public orderBook;
+    // OrderBook public orderBook;
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
@@ -49,17 +49,17 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
     event FeesWithdrawn(address indexed to, address indexed token, uint256 amount);
 
     modifier onlyFactoryAdmin() {
-        require(hasRole(ADMIN_ROLE, msg.sender), "Only factory admin can call this function");
+        _onlyFactoryAdmin();
         _;
     }
 
     modifier onlyProjectFounder(uint256 projectId) {
-        require(projects[projectId].founder == msg.sender, "Only project founder can call this function");
+        _onlyProjectFounder(projectId);
         _;
     }
 
     modifier onlyProjectFounderOrAdmin(uint256 projectId) {
-        require(projects[projectId].founder == msg.sender || hasRole(ADMIN_ROLE, msg.sender) || hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Only project founder or admin can call this function");
+        _onlyProjectFounderOrAdmin(projectId);
         _;
     }
 
@@ -253,9 +253,9 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
         uint256 shares,
         uint256 pricePerShare,
         uint256 expirationTime
-    ) external nonReentrant override returns (uint256 orderId) {
+    ) public nonReentrant override returns (uint256 orderId) {
 
-        orderId = orderBook.placeLimitOrder(
+        orderId = super.placeLimitOrder(
             projectId,
             orderType,
             shares,
@@ -272,8 +272,8 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
 
     /// @notice Cancel an active order
     /// @param orderId Order to cancel
-    function cancelOrder(uint256 orderId) external nonReentrant override {
-        orderBook.cancelOrder(orderId);
+    function cancelOrder(uint256 orderId) public nonReentrant override {
+        super.cancelOrder(orderId);
     }
 
     /// @notice Get order book depth for a project
@@ -283,21 +283,21 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
     /// @return sharesToBuy Array of buy shares
     /// @return sellPrices Array of sell prices
     /// @return sharesToSell Array of sell shares
-    function getOrderBookDepth(uint256 projectId, uint256 depth) external view override returns (
+    function getOrderBookDepth(uint256 projectId, uint256 depth) public view override returns (
         uint256[] memory buyPrices,
         uint256[] memory sharesToBuy,
         uint256[] memory sellPrices,
         uint256[] memory sharesToSell
     ) {
-        return orderBook.getOrderBookDepth(projectId, depth);
+        return super.getOrderBookDepth(projectId, depth);
     }
 
     /// @notice Get user's active orders for a project
     /// @param user User address
     /// @param projectId Project ID
     /// @return userOrders Array of user's orders
-    function getUserOrders(address user, uint256 projectId) external view override returns (Order[] memory) {
-        return orderBook.getUserOrders(user, projectId);
+    function getUserOrders(address user, uint256 projectId) public view override returns (Order[] memory) {
+        return super.getUserOrders(user, projectId);
     }
 
     /// @notice Get trading history for a project
@@ -334,7 +334,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
     /// @return tradesExecuted Number of trades executed
     /// @return feeAmount Total fee amount collected
     function matchOrders(uint256 projectId) public returns (uint256 tradesExecuted, uint256 feeAmount) {
-        (tradesExecuted, feeAmount) = orderBook.matchOrdersForProject(projectId, TRADING_FEE_RATE);
+        (tradesExecuted, feeAmount) = super.matchOrdersForProject(projectId, TRADING_FEE_RATE);
         tradeCounter++;
         TradeFeeAmount += feeAmount;
     }
@@ -383,6 +383,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
     function unpause() external onlyRole(ADMIN_ROLE) {
         _unpause();
     }
+
     /************************************************
      *                 Admin functions               *
      *************************************************/
@@ -421,5 +422,20 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
         emit ProjectExists(projectId, _exists);
     }
 
+    /************************************************
+     *                 Internal functions            *
+     *************************************************/
+
+    function _onlyFactoryAdmin() internal view {
+        require(hasRole(ADMIN_ROLE, msg.sender) || hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Only factory admin can call this function");
+    }
+
+    function _onlyProjectFounder(uint256 projectId) internal view {
+        require(projects[projectId].founder == msg.sender, "Only project founder can call this function");
+    }
+
+    function _onlyProjectFounderOrAdmin(uint256 projectId) internal view {
+        require(projects[projectId].founder == msg.sender || hasRole(ADMIN_ROLE, msg.sender) || hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Only project founder or admin can call this function");
+    }
 }
 
