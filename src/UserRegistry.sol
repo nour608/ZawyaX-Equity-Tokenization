@@ -11,22 +11,15 @@ contract UserRegistry is DataTypes, AccessControl {
     mapping(address => Profile) public profiles;
     mapping(string => bool) private usedNames;
 
-
     event ProfileCreated(string name, address walletAddress, bool isFounder, bool isInvestor, bytes32 ipfsCID);
     event ProfileUpdated(address walletAddress, bytes32 newIpfsCID, uint256 timestamp);
-
 
     constructor() {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
     }
 
-    function createProfile(
-        string calldata _name,
-        bool _isFounder,
-        bool _isInvestor,
-        bytes32 _ipfsCID
-    ) external {
+    function createProfile(string calldata _name, bool _isFounder, bool _isInvestor, bytes32 _ipfsCID) external {
         require(!usedNames[_name], "Name already taken");
         require(profiles[msg.sender].walletAddress == address(0), "Profile already exists");
 
@@ -58,10 +51,7 @@ contract UserRegistry is DataTypes, AccessControl {
         return profiles[_walletAddress];
     }
 
-
-
     //////////////////////
     /// Admin functions///
     //////////////////////
-
 }

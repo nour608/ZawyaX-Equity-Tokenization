@@ -62,7 +62,7 @@ contract CurrencyManagerTests is Test {
     function test_AddCurrency_RevertWhenAlreadyWhitelisted() public {
         vm.startPrank(admin);
         currencyManager.addCurrency(currency1);
-        
+
         vm.expectRevert(abi.encodeWithSelector(CurrencyManager.CurrencyManagerError.selector, "Already whitelisted"));
         currencyManager.addCurrency(currency1);
         vm.stopPrank();
@@ -86,7 +86,7 @@ contract CurrencyManagerTests is Test {
     function test_RemoveCurrency_Success() public {
         vm.startPrank(admin);
         currencyManager.addCurrency(currency1);
-        
+
         vm.expectEmit(true, false, false, false);
         emit CurrencyRemoved(currency1);
         currencyManager.removeCurrency(currency1);
@@ -151,10 +151,10 @@ contract CurrencyManagerTests is Test {
         vm.startPrank(admin);
         currencyManager.addCurrency(currency1);
         assertEq(currencyManager.viewCountWhitelistedCurrencies(), 1);
-        
+
         currencyManager.addCurrency(currency2);
         assertEq(currencyManager.viewCountWhitelistedCurrencies(), 2);
-        
+
         currencyManager.addCurrency(currency3);
         assertEq(currencyManager.viewCountWhitelistedCurrencies(), 3);
         vm.stopPrank();
@@ -165,7 +165,7 @@ contract CurrencyManagerTests is Test {
         currencyManager.addCurrency(currency1);
         currencyManager.addCurrency(currency2);
         assertEq(currencyManager.viewCountWhitelistedCurrencies(), 2);
-        
+
         currencyManager.removeCurrency(currency1);
         assertEq(currencyManager.viewCountWhitelistedCurrencies(), 1);
         vm.stopPrank();
@@ -175,7 +175,7 @@ contract CurrencyManagerTests is Test {
 
     function test_ViewWhitelistedCurrencies_Empty() public view {
         (address[] memory currencies, uint256 newCursor) = currencyManager.viewWhitelistedCurrencies(0, 10);
-        
+
         assertEq(currencies.length, 0);
         assertEq(newCursor, 0);
     }
@@ -185,7 +185,7 @@ contract CurrencyManagerTests is Test {
         currencyManager.addCurrency(currency1);
 
         (address[] memory currencies, uint256 newCursor) = currencyManager.viewWhitelistedCurrencies(0, 10);
-        
+
         assertEq(currencies.length, 1);
         assertEq(currencies[0], currency1);
         assertEq(newCursor, 1);
@@ -199,7 +199,7 @@ contract CurrencyManagerTests is Test {
         vm.stopPrank();
 
         (address[] memory currencies, uint256 newCursor) = currencyManager.viewWhitelistedCurrencies(0, 10);
-        
+
         assertEq(currencies.length, 3);
         assertEq(currencies[0], currency1);
         assertEq(currencies[1], currency2);
@@ -233,7 +233,7 @@ contract CurrencyManagerTests is Test {
         currencyManager.addCurrency(currency1);
 
         (address[] memory currencies, uint256 newCursor) = currencyManager.viewWhitelistedCurrencies(5, 10);
-        
+
         assertEq(currencies.length, 0);
         assertEq(newCursor, 5);
     }
@@ -245,7 +245,7 @@ contract CurrencyManagerTests is Test {
         vm.stopPrank();
 
         (address[] memory currencies, uint256 newCursor) = currencyManager.viewWhitelistedCurrencies(1, 10);
-        
+
         assertEq(currencies.length, 1);
         assertEq(currencies[0], currency2);
         assertEq(newCursor, 2);
@@ -255,57 +255,57 @@ contract CurrencyManagerTests is Test {
 
     function test_Integration_AddRemoveMultipleCurrencies() public {
         vm.startPrank(admin);
-        
+
         // Add currencies
         currencyManager.addCurrency(currency1);
         currencyManager.addCurrency(currency2);
         currencyManager.addCurrency(currency3);
-        
+
         assertEq(currencyManager.viewCountWhitelistedCurrencies(), 3);
         assertTrue(currencyManager.isCurrencyWhitelisted(currency1));
         assertTrue(currencyManager.isCurrencyWhitelisted(currency2));
         assertTrue(currencyManager.isCurrencyWhitelisted(currency3));
-        
+
         // Remove middle currency
         currencyManager.removeCurrency(currency2);
-        
+
         assertEq(currencyManager.viewCountWhitelistedCurrencies(), 2);
         assertTrue(currencyManager.isCurrencyWhitelisted(currency1));
         assertFalse(currencyManager.isCurrencyWhitelisted(currency2));
         assertTrue(currencyManager.isCurrencyWhitelisted(currency3));
-        
+
         // Add currency2 back
         currencyManager.addCurrency(currency2);
-        
+
         assertEq(currencyManager.viewCountWhitelistedCurrencies(), 3);
         assertTrue(currencyManager.isCurrencyWhitelisted(currency1));
         assertTrue(currencyManager.isCurrencyWhitelisted(currency2));
         assertTrue(currencyManager.isCurrencyWhitelisted(currency3));
-        
+
         vm.stopPrank();
     }
 
     function test_Integration_ViewCurrenciesAfterOperations() public {
         vm.startPrank(admin);
-        
+
         // Add currencies
         currencyManager.addCurrency(currency1);
         currencyManager.addCurrency(currency2);
         currencyManager.addCurrency(currency3);
-        
+
         // View all currencies
-        (address[] memory currencies, ) = currencyManager.viewWhitelistedCurrencies(0, 10);
+        (address[] memory currencies,) = currencyManager.viewWhitelistedCurrencies(0, 10);
         assertEq(currencies.length, 3);
-        
+
         // Remove one currency
         currencyManager.removeCurrency(currency2);
-        
+
         // View remaining currencies
-        (address[] memory remainingCurrencies, ) = currencyManager.viewWhitelistedCurrencies(0, 10);
+        (address[] memory remainingCurrencies,) = currencyManager.viewWhitelistedCurrencies(0, 10);
         assertEq(remainingCurrencies.length, 2);
         assertEq(remainingCurrencies[0], currency1);
         assertEq(remainingCurrencies[1], currency3);
-        
+
         vm.stopPrank();
     }
 
@@ -320,9 +320,9 @@ contract CurrencyManagerTests is Test {
         vm.startPrank(admin);
         currencyManager.grantRole(currencyManager.ADMIN_ROLE(), user);
         vm.stopPrank();
-        
+
         assertTrue(currencyManager.hasRole(currencyManager.ADMIN_ROLE(), user));
-        
+
         // User can now add currency
         vm.prank(user);
         currencyManager.addCurrency(currency1);
@@ -334,9 +334,9 @@ contract CurrencyManagerTests is Test {
         currencyManager.grantRole(currencyManager.ADMIN_ROLE(), user);
         currencyManager.revokeRole(currencyManager.ADMIN_ROLE(), user);
         vm.stopPrank();
-        
+
         assertFalse(currencyManager.hasRole(currencyManager.ADMIN_ROLE(), user));
-        
+
         // User can no longer add currency
         vm.prank(user);
         vm.expectRevert();
@@ -350,7 +350,7 @@ contract CurrencyManagerTests is Test {
         uint256 gasBefore = gasleft();
         currencyManager.addCurrency(currency1);
         uint256 gasUsed = gasBefore - gasleft();
-        
+
         console2.log("Gas used for addCurrency:", gasUsed);
         assertTrue(gasUsed > 0);
     }
@@ -358,11 +358,11 @@ contract CurrencyManagerTests is Test {
     function test_Gas_RemoveCurrency() public {
         vm.startPrank(admin);
         currencyManager.addCurrency(currency1);
-        
+
         uint256 gasBefore = gasleft();
         currencyManager.removeCurrency(currency1);
         uint256 gasUsed = gasBefore - gasleft();
-        
+
         console2.log("Gas used for removeCurrency:", gasUsed);
         assertTrue(gasUsed > 0);
         vm.stopPrank();
@@ -378,7 +378,7 @@ contract CurrencyManagerTests is Test {
         uint256 gasBefore = gasleft();
         currencyManager.viewWhitelistedCurrencies(0, 10);
         uint256 gasUsed = gasBefore - gasleft();
-        
+
         console2.log("Gas used for viewWhitelistedCurrencies:", gasUsed);
         assertTrue(gasUsed > 0);
     }

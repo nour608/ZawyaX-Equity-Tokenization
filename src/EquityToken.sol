@@ -23,9 +23,14 @@ contract EquityToken is ERC20, Pausable, Ownable {
 
     /// @param initialOwner Address that will own this token contract (project developer)
     /// @param SharesToSell Total share supply (whole units, no decimals)
-    constructor(string memory _name, string memory _symbol, address initialOwner, address _factory, uint256 SharesToSell, uint256 _platformFee) Ownable(initialOwner)
-        ERC20(_name, _symbol)
-    {
+    constructor(
+        string memory _name,
+        string memory _symbol,
+        address initialOwner,
+        address _factory,
+        uint256 SharesToSell,
+        uint256 _platformFee
+    ) Ownable(initialOwner) ERC20(_name, _symbol) {
         require(SharesToSell <= TOTAL_SHARES, "Shares to sell must be less than or equal to total shares");
         sharesToSell = SharesToSell;
         FACTORY = _factory;
@@ -48,10 +53,11 @@ contract EquityToken is ERC20, Pausable, Ownable {
         _burn(msg.sender, _sharesToSell);
     }
 
-    /************************************************
+    /**
+     *
      *            Transfer Functionality            *
-     *************************************************/
-
+     *
+     */
     function transfer(address to, uint256 amount) public override whenNotPaused returns (bool) {
         return super.transfer(to, amount);
     }
@@ -60,9 +66,11 @@ contract EquityToken is ERC20, Pausable, Ownable {
         return super.transferFrom(from, to, amount);
     }
 
-    /************************************************
+    /**
+     *
      *            Pausable Functionality            *
-     *************************************************/
+     *
+     */
 
     /// @notice Pause token transfers (only owner or factory)
     function pause() external {
@@ -76,12 +84,12 @@ contract EquityToken is ERC20, Pausable, Ownable {
         _unpause();
     }
 
-    /************************************************
+    /**
+     *
      *                 Internal functions            *
-     *************************************************/
-
+     *
+     */
     function _onlyFactory() internal view {
         require(msg.sender == FACTORY, "Only factory can call this function");
     }
-
 }

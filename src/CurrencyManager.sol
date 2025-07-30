@@ -83,12 +83,12 @@ contract CurrencyManager is ICurrencyManager, AccessControl {
         returns (address[] memory, uint256)
     {
         uint256 totalCurrencies = _whitelistedCurrencies.length();
-        
+
         // Check if cursor is beyond the total count
         if (cursor >= totalCurrencies) {
             return (new address[](0), cursor);
         }
-        
+
         uint256 length = size;
         if (length > totalCurrencies - cursor) {
             length = totalCurrencies - cursor;

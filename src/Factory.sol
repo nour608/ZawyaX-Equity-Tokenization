@@ -15,10 +15,10 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBook {
     using SafeERC20 for IERC20;
-    
+
     UserRegistry public userRegistry;
     ICurrencyManager public currencyManager;
-    
+
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
     // Counter for project IDs
@@ -26,7 +26,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
 
     uint256 public constant TOTAL_SHARES = 1_000_000 * 1e18; // 100% of the total shares // @alqaqa : check this
     uint256 public constant BASIS_POINTS = 10_000; // 10_000 is 100%
-    uint256 public PLATFORM_FEE; // (e.g., 500 = 5%) 
+    uint256 public PLATFORM_FEE; // (e.g., 500 = 5%)
     uint256 public TRADING_FEE_RATE; // Global trading fee rate in basis points (e.g., 25 = 0.25%)
 
     uint256 public TradeFeeAmount;
@@ -68,7 +68,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
         PLATFORM_FEE = _platformFee;
         TRADING_FEE_RATE = _tradingFeeRate;
         projectCounter = 1;
-        orderCounter = 1; 
+        orderCounter = 1;
         tradeCounter = 1;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
@@ -79,10 +79,14 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
     /// @param valuationUSD Total valuation in USD (no decimals)
     /// @param sharesToSell Number of shares to issue (whole units)
     /// @param _purchaseToken Address of ERC20 stablecoin (e.g. USDC)
-    function createProject(bytes32 ipfsCID, uint256 valuationUSD, uint256 sharesToSell, address _purchaseToken, string memory _name, string memory _symbol)
-        external
-        returns (uint256 projectId)
-    {
+    function createProject(
+        bytes32 ipfsCID,
+        uint256 valuationUSD,
+        uint256 sharesToSell,
+        address _purchaseToken,
+        string memory _name,
+        string memory _symbol
+    ) external returns (uint256 projectId) {
         require(valuationUSD > 0, "Valuation must be greater than 0");
         require(sharesToSell > 0, "Shares must be greater than 0");
         require(sharesToSell <= TOTAL_SHARES, "Shares must be less than or equal to total shares");
@@ -90,7 +94,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
 
         // platform fee is a percentage of the shares to sell
         uint256 platformFee = (sharesToSell * PLATFORM_FEE) / BASIS_POINTS;
-    
+
         // project name + " Equity Token", e.g. "ZawyaX Equity Token"
         string memory name = string(abi.encodePacked(_name, " Equity Token"));
         // Deploy new ERC20 token for this project
@@ -99,7 +103,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
         // Calculate price: (valuationUSD * 10^stableDecimals) / totalShares
         uint8 decimals = IERC20Metadata(_purchaseToken).decimals();
         uint256 stableUnit = 10 ** decimals;
-        uint256 price = (valuationUSD * stableUnit) / TOTAL_SHARES; // @alqaqa : check this 
+        uint256 price = (valuationUSD * stableUnit) / TOTAL_SHARES; // @alqaqa : check this
 
         // Get next project ID
         projectId = projectCounter;
@@ -133,9 +137,9 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
         Project storage p = projects[projectId];
         require(p.exists, "Project does not exist");
         require(sharesAmount > 0, "Must buy at least 1 share");
-        require(sharesAmount <= p.availableSharesToSell, "Not enough shares to sell");  // check if the project has enough shares to sell
+        require(sharesAmount <= p.availableSharesToSell, "Not enough shares to sell"); // check if the project has enough shares to sell
 
-        uint256 cost = (sharesAmount * p.pricePerShare) / 1e18; 
+        uint256 cost = (sharesAmount * p.pricePerShare) / 1e18;
         uint256 tokensToMint = sharesAmount; // Equity tokens have 18 decimals
 
         p.availableSharesToSell -= sharesAmount;
@@ -167,7 +171,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
             IERC20(p.purchaseToken).safeTransfer(to, amount);
             emit FundsWithdrawn(projectId, amount, to, msg.sender);
         } else if (p.verified) {
-            require(hasRole(ADMIN_ROLE, msg.sender) || hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Not factory admin");  
+            require(hasRole(ADMIN_ROLE, msg.sender) || hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Not factory admin");
             require(amount > 0, "Amount must be greater than 0");
             require(amount <= p.availableFunds, "Not enough funds to withdraw");
             p.availableFunds -= amount;
@@ -177,7 +181,6 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
             IERC20(p.purchaseToken).safeTransfer(to, amount);
             emit FundsWithdrawn(projectId, amount, to, msg.sender);
         }
-
     }
 
     // TODO: dividend distribution logic (e.g., snapshot + pro-rata payouts)
@@ -198,9 +201,11 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
         return projects[projectId];
     }
 
-    /************************************************
+    /**
+     *
      *            Secondary Market Functions         *
-     *************************************************/
+     *
+     */
 
     /// @notice Enable secondary market trading for a project
     /// @param projectId Project to enable trading for
@@ -212,10 +217,10 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
 
         // Update project to enable secondary market
         project.secondaryMarketEnabled = true;
-        
-        // Initialize market stats  
+
+        // Initialize market stats
         projectMarketStats[projectId].lastUpdateTime = block.timestamp;
-        
+
         emit SecondaryMarketEnabled(projectId, address(this), TRADING_FEE_RATE);
     }
 
@@ -227,7 +232,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
         if (!project.secondaryMarketEnabled) {
             return project.pricePerShare; // Return initial price if no secondary market
         }
-        
+
         uint256 marketPrice = projectMarketStats[projectId].lastPrice;
         return marketPrice > 0 ? marketPrice : project.pricePerShare;
     }
@@ -252,18 +257,11 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
         uint256 shares,
         uint256 pricePerShare,
         uint256 expirationTime
-    ) public nonReentrant override returns (uint256 orderId) {
-
-        orderId = super.placeLimitOrder(
-            projectId,
-            orderType,
-            shares,
-            pricePerShare,
-            expirationTime
-        );
+    ) public override nonReentrant returns (uint256 orderId) {
+        orderId = super.placeLimitOrder(projectId, orderType, shares, pricePerShare, expirationTime);
 
         orderCounter++;
-        
+
         matchOrders(projectId);
 
         return orderId;
@@ -271,7 +269,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
 
     /// @notice Cancel an active order
     /// @param orderId Order to cancel
-    function cancelOrder(uint256 orderId) public nonReentrant override {
+    function cancelOrder(uint256 orderId) public override nonReentrant {
         super.cancelOrder(orderId);
     }
 
@@ -282,12 +280,17 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
     /// @return sharesToBuy Array of buy shares
     /// @return sellPrices Array of sell prices
     /// @return sharesToSell Array of sell shares
-    function getOrderBookDepth(uint256 projectId, uint256 depth) public view override returns (
-        uint256[] memory buyPrices,
-        uint256[] memory sharesToBuy,
-        uint256[] memory sellPrices,
-        uint256[] memory sharesToSell
-    ) {
+    function getOrderBookDepth(uint256 projectId, uint256 depth)
+        public
+        view
+        override
+        returns (
+            uint256[] memory buyPrices,
+            uint256[] memory sharesToBuy,
+            uint256[] memory sellPrices,
+            uint256[] memory sharesToSell
+        )
+    {
         return super.getOrderBookDepth(projectId, depth);
     }
 
@@ -305,19 +308,19 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
     /// @return Recent trades array
     function getTradingHistory(uint256 projectId, uint256 limit) external view returns (Trade[] memory) {
         Trade[] storage allTrades = projectTrades[projectId];
-        
+
         if (allTrades.length == 0) {
             return new Trade[](0);
         }
-        
+
         uint256 returnLength = allTrades.length > limit ? limit : allTrades.length;
         Trade[] memory recentTrades = new Trade[](returnLength);
-        
+
         // Return most recent trades
         for (uint256 i = 0; i < returnLength; i++) {
             recentTrades[i] = allTrades[allTrades.length - 1 - i];
         }
-        
+
         return recentTrades;
     }
 
@@ -338,26 +341,28 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
         TradeFeeAmount += feeAmount;
     }
 
-    /************************************************
+    /**
+     *
      *              Pause Management                *
-     *************************************************/
+     *
+     */
 
     /// @notice Pause a project's equity token (admin only)
     /// @param projectId Project ID to pause
     function pauseProject(uint256 projectId) external onlyRole(ADMIN_ROLE) {
-        Project storage project = projects[projectId];  
+        Project storage project = projects[projectId];
         require(project.exists, "Project does not exist");
-        
+
         EquityToken token = EquityToken(project.equityToken);
         token.pause();
     }
 
-    /// @notice Unpause a project's equity token (admin only)  
+    /// @notice Unpause a project's equity token (admin only)
     /// @param projectId Project ID to unpause
     function unpauseProject(uint256 projectId) external onlyRole(ADMIN_ROLE) {
-        Project storage project = projects[projectId];  
+        Project storage project = projects[projectId];
         require(project.exists, "Project does not exist");
-        
+
         EquityToken token = EquityToken(project.equityToken);
         token.unpause();
     }
@@ -368,7 +373,7 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
     function isProjectPaused(uint256 projectId) public view returns (bool) {
         Project storage project = projects[projectId];
         require(project.exists, "Project does not exist");
-        
+
         EquityToken token = EquityToken(project.equityToken);
         return token.paused();
     }
@@ -383,10 +388,11 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
         _unpause();
     }
 
-    /************************************************
+    /**
+     *
      *                 Admin functions               *
-     *************************************************/
-    
+     *
+     */
     function withdrawFees(address to, address token, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(amount > 0, "Amount must be greater than 0");
         require(token != address(0), "Invalid token address");
@@ -421,12 +427,16 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
         emit ProjectExists(projectId, _exists);
     }
 
-    /************************************************
+    /**
+     *
      *                 Internal functions            *
-     *************************************************/
-
+     *
+     */
     function _onlyFactoryAdmin() internal view {
-        require(hasRole(ADMIN_ROLE, msg.sender) || hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Only factory admin can call this function");
+        require(
+            hasRole(ADMIN_ROLE, msg.sender) || hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
+            "Only factory admin can call this function"
+        );
     }
 
     function _onlyProjectFounder(uint256 projectId) internal view {
@@ -434,7 +444,10 @@ contract Factory is AccessControl, ReentrancyGuard, Pausable, DataTypes, OrderBo
     }
 
     function _onlyProjectFounderOrAdmin(uint256 projectId) internal view {
-        require(projects[projectId].founder == msg.sender || hasRole(ADMIN_ROLE, msg.sender) || hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Only project founder or admin can call this function");
+        require(
+            projects[projectId].founder == msg.sender || hasRole(ADMIN_ROLE, msg.sender)
+                || hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
+            "Only project founder or admin can call this function"
+        );
     }
 }
-
