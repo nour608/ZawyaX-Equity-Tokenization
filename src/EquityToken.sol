@@ -13,9 +13,6 @@ contract EquityToken is ERC20, Pausable, Ownable {
     uint256 public sharesToSell; // shares to sell is the amount of shares that will be sold to the public
     address public immutable FACTORY;
 
-    // Events
-    event FactoryAdminSet(address indexed admin);
-
     modifier onlyFactory() {
         _onlyFactory();
         _;
@@ -32,11 +29,12 @@ contract EquityToken is ERC20, Pausable, Ownable {
         uint256 _platformFee
     ) Ownable(initialOwner) ERC20(_name, _symbol) {
         require(SharesToSell <= TOTAL_SHARES, "Shares to sell must be less than or equal to total shares");
-        sharesToSell = SharesToSell;
+        sharesToSell = SharesToSell - _platformFee;
         FACTORY = _factory;
+        uint256 initialOwnerShares = TOTAL_SHARES - sharesToSell - _platformFee;
         require(FACTORY != address(0), "Factory address cannot be 0");
         _mint(FACTORY, _platformFee);
-        _mint(initialOwner, TOTAL_SHARES - sharesToSell - _platformFee);
+        _mint(initialOwner, initialOwnerShares);
         _pause(); // pause the token transfers
     }
 
@@ -53,11 +51,13 @@ contract EquityToken is ERC20, Pausable, Ownable {
         _burn(msg.sender, _sharesToSell);
     }
 
-    /**
-     *
-     *            Transfer Functionality            *
-     *
-     */
+    function getSharesToSell() external view returns (uint256) {
+        return sharesToSell;
+    }
+
+    /*////////////////////////////////
+          Transfer Functionality
+    //////////////////////////////////*/
     function transfer(address to, uint256 amount) public override whenNotPaused returns (bool) {
         return super.transfer(to, amount);
     }
@@ -66,11 +66,9 @@ contract EquityToken is ERC20, Pausable, Ownable {
         return super.transferFrom(from, to, amount);
     }
 
-    /**
-     *
-     *            Pausable Functionality            *
-     *
-     */
+    /*////////////////////////////////
+          Pausable Functionality
+    //////////////////////////////////*/
 
     /// @notice Pause token transfers (only owner or factory)
     function pause() external {
@@ -84,11 +82,10 @@ contract EquityToken is ERC20, Pausable, Ownable {
         _unpause();
     }
 
-    /**
-     *
-     *                 Internal functions            *
-     *
-     */
+    /*////////////////////////////////
+          Internal functions
+    //////////////////////////////////*/
+
     function _onlyFactory() internal view {
         require(msg.sender == FACTORY, "Only factory can call this function");
     }

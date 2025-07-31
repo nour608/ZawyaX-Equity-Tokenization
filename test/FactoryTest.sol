@@ -57,7 +57,7 @@ contract FactoryTest is Test {
     // Project test data
     bytes32 public constant TEST_IPFS_CID = keccak256("QmTestHash");
     uint256 public constant TEST_VALUATION = 1000000e18; // $1M USD
-    uint256 public constant TEST_SHARES_TO_SELL = 100000e18; // 100k shares  // @alqaqa : check this
+    uint256 public constant TEST_SHARES_TO_SELL = 100000e18; // 100k shares 
     string public constant TEST_PROJECT_NAME = "TestProject";
     string public constant TEST_PROJECT_SYMBOL = "TEST";
 
@@ -159,7 +159,7 @@ contract FactoryTest is Test {
         assertEq(project.purchaseToken, address(usdc));
         assertEq(project.valuationUSD, TEST_VALUATION);
         assertEq(project.totalShares, factory.TOTAL_SHARES());
-        assertEq(project.availableSharesToSell, TEST_SHARES_TO_SELL);
+        assertEq(project.availableSharesToSell, TEST_SHARES_TO_SELL - (TEST_SHARES_TO_SELL * PLATFORM_FEE) / 10000);
         assertEq(project.sharesSold, 0);
         assertEq(project.availableFunds, 0);
         assertEq(project.ipfsCID, TEST_IPFS_CID);
@@ -245,7 +245,7 @@ contract FactoryTest is Test {
         // Verify project state updated
         DataTypes.Project memory updatedProject = factory.getProject(projectId);
         assertEq(updatedProject.sharesSold, sharesToBuy);
-        assertEq(updatedProject.availableSharesToSell, TEST_SHARES_TO_SELL - sharesToBuy);
+        assertEq(updatedProject.availableSharesToSell, TEST_SHARES_TO_SELL - sharesToBuy - (TEST_SHARES_TO_SELL * PLATFORM_FEE) / 10000);
         assertEq(updatedProject.availableFunds, expectedCost);
     }
 
@@ -602,7 +602,7 @@ contract FactoryTest is Test {
 
         // Since orders are matched immediately, the sell order should be partially filled
         assertEq(sellPrices.length, 1);
-        assertEq(sellSharesRemaining[0], sellShares - buyShares); // @alqaqa : check this, it's failing, i think the sellSharesRemaining is not updated correctly, I have solved it check the getOrderBookDepth() function
+        assertEq(sellSharesRemaining[0], sellShares - buyShares);
     }
 
     function test_CancelOrder() public {
@@ -784,8 +784,23 @@ contract FactoryTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
+                            EVENTS 
+    //////////////////////////////////////////////////////////////*/
+
+    event FeesWithdrawn(address indexed to, address indexed token, uint256 amount);
+    event ProjectExists(uint256 indexed projectId, bool exists);
+    event FundsWithdrawn(uint256 indexed projectId, uint256 amount, address to, address from);
+
+    /*//////////////////////////////////////////////////////////////
                             HELPER FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    function _createTestProject() internal returns (uint256 projectId) {
+        vm.prank(founder1);
+        projectId = factory.createProject(
+            TEST_IPFS_CID, TEST_VALUATION, TEST_SHARES_TO_SELL, address(usdc), TEST_PROJECT_NAME, TEST_PROJECT_SYMBOL
+        );
+    }
 
     function createProjectWithSecondaryMarket() internal returns (uint256 projectId) {
         // Create project
@@ -815,5 +830,194 @@ contract FactoryTest is Test {
 
         vm.prank(investor);
         factory.buyShares(projectId, sharesToBuy);
+    }
+
+    /*///////////////////////////////////////////////
+              Additional Function Tests 
+    ///////////////////////////////////////////////*/
+
+    /// @notice Tests for projectCount() function
+    function test_ProjectCount_InitiallyOne() public view {
+        assertEq(factory.projectCount(), 1);
+    }
+
+    function test_ProjectCount_IncrementsAfterCreation() public {
+        uint256 initialCount = factory.projectCount();
+        
+        vm.prank(founder1);
+        factory.createProject(
+            bytes32("ipfs_hash_2"),
+            50000,
+            500000 * 1e18,
+            address(usdc),
+            "TestProject2",
+            "TP2"
+        );
+        
+        assertEq(factory.projectCount(), initialCount + 1);
+    }
+
+    /// @notice Tests for pauseProject() and unpauseProject() functions
+    function test_PauseProject_Success() public {
+        uint256 projectId = test_UnpauseProject_Success();
+        vm.prank(admin);
+        factory.pauseProject(projectId);
+
+        assertTrue(factory.isProjectPaused(projectId));
+    }
+
+
+    function test_UnpauseProject_Success() public returns (uint256 projectId) {
+        projectId = _createTestProject();
+        
+        assertTrue(factory.isProjectPaused(projectId));
+        
+        vm.prank(admin);
+        factory.unpauseProject(projectId);
+        assertFalse(factory.isProjectPaused(projectId));
+    }
+
+    /// @notice Tests for factory pause() and unpause() functions
+    function test_FactoryPause_Success() public {
+        vm.prank(admin);
+        factory.pause();
+        
+        assertTrue(factory.paused());
+    }
+
+    function test_FactoryPause_RevertWhenNotAdmin() public {
+        vm.prank(founder1);
+        vm.expectRevert();
+        factory.pause();
+    }
+
+    function test_FactoryUnpause_Success() public {
+        // First pause
+        vm.prank(admin);
+        factory.pause();
+        assertTrue(factory.paused());
+        
+        // Then unpause
+        vm.prank(admin);
+        factory.unpause();
+        assertFalse(factory.paused());
+    }
+
+    function test_FactoryUnpause_RevertWhenNotAdmin() public {
+        vm.prank(admin);
+        factory.pause();
+        
+        vm.prank(founder1);
+        vm.expectRevert();
+        factory.unpause();
+    }
+   
+    /// @notice Tests for setProjectExists() function  
+    function test_SetProjectExists_ToFalse() public {
+        uint256 projectId = _createTestProject();
+        assertTrue(factory.projectExists(projectId));
+        
+        vm.expectEmit(true, true, false, true);
+        emit ProjectExists(projectId, false);
+        
+        vm.prank(admin);
+        factory.setProjectExists(projectId, false);
+        
+        assertFalse(factory.projectExists(projectId));
+    }
+
+    function test_SetProjectExists_ToTrue() public {
+        uint256 projectId = _createTestProject();
+        
+        // First set to false
+        vm.prank(admin);
+        factory.setProjectExists(projectId, false);
+        assertFalse(factory.projectExists(projectId));
+        
+        vm.expectEmit(true, true, false, true);
+        emit ProjectExists(projectId, true);
+        
+        // Then set back to true
+        vm.prank(admin);
+        factory.setProjectExists(projectId, true);
+        
+        assertTrue(factory.projectExists(projectId));
+    }
+
+    function test_SetProjectExists_RevertWhenNotAdmin() public {
+        uint256 projectId = _createTestProject();
+        
+        vm.prank(founder1);
+        vm.expectRevert();
+        factory.setProjectExists(projectId, false);
+    }
+
+    /// @notice Tests for modifier functions and edge cases
+    function test_OnlyFactoryAdmin_Modifier() public {
+        // Test functions that use onlyFactoryAdmin modifier
+        // Already covered by other tests, but let's test the access explicitly
+        
+        // Test that non-admin cannot call admin functions
+        vm.prank(founder1);
+        vm.expectRevert();
+        factory.setPlatformFee(1000);
+        
+        vm.prank(investor1);
+        vm.expectRevert();
+        factory.setTradingFeeRate(50);
+        
+        // Test that admin can call these functions
+        vm.prank(admin);
+        factory.setPlatformFee(1000);
+        
+        vm.prank(admin);
+        factory.setTradingFeeRate(50);
+    }
+
+
+    /// @notice Tests for edge cases in existing functions
+    function test_CreateProject_EdgeCases() public {    
+        // Test edge case: shares equal to total shares
+        vm.prank(founder1);
+        uint256 projectId = factory.createProject(
+            bytes32("edge_case"),
+            100000,
+            factory.TOTAL_SHARES(), // Exactly total shares  
+            address(usdc),
+            "EdgeProject",
+            "EDGE"
+        );
+        
+        DataTypes.Project memory project = factory.getProject(projectId);
+        assertEq(project.availableSharesToSell, factory.TOTAL_SHARES() - (factory.TOTAL_SHARES() * PLATFORM_FEE) / 10000);
+    }
+
+    function test_CreateProject_RevertWhenSharesExceedTotal() public {
+        vm.prank(founder1);
+        vm.expectRevert("Shares must be less than or equal to total shares");
+        factory.createProject(
+            bytes32("invalid"),
+            100000,
+            1000001 * 1e18, // Exceeds total shares
+            address(usdc),
+            "InvalidProject",
+            "INV"
+        );
+    }
+
+    function test_CreateProject_RevertWhenInvalidPurchaseToken() public {
+        // Create a token that's not whitelisted
+        MockERC20 invalidToken = new MockERC20("Invalid", "INV", 18);
+        
+        vm.prank(founder1);
+        vm.expectRevert("Purchase token not whitelisted");
+        factory.createProject(
+            bytes32("invalid"),
+            100000,
+            500000 * 1e18,
+            address(invalidToken),
+            "InvalidProject",
+            "INV"
+        );
     }
 }

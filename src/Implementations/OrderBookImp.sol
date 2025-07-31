@@ -70,7 +70,7 @@ abstract contract OrderBook is DataTypes {
             shares: shares,
             sharesRemaining: shares,
             pricePerShare: pricePerShare,
-            totalValue: (shares * pricePerShare) / 1e18, // @alqaqa : check this
+            totalValue: (shares * pricePerShare) / 1e18, 
             timestamp: block.timestamp,
             expirationTime: expirationTime,
             status: DataTypes.OrderStatus.ACTIVE,
@@ -79,7 +79,7 @@ abstract contract OrderBook is DataTypes {
 
         // Lock tokens/funds
         if (orderType == DataTypes.OrderType.BUY) {
-            uint256 totalCost = (shares * pricePerShare) / 1e18; // @alqaqa : check this
+            uint256 totalCost = (shares * pricePerShare) / 1e18; 
             IERC20(project.purchaseToken).safeTransferFrom(msg.sender, address(this), totalCost);
             _insertBuyOrder(orderId, projectBuyOrders[projectId]);
         } else {
@@ -110,7 +110,7 @@ abstract contract OrderBook is DataTypes {
 
         // Return locked tokens/funds
         if (order.orderType == DataTypes.OrderType.BUY) {
-            uint256 refundAmount = (order.sharesRemaining * order.pricePerShare) / 1e18; // @alqaqa : check this
+            uint256 refundAmount = (order.sharesRemaining * order.pricePerShare) / 1e18; 
             IERC20(project.purchaseToken).safeTransfer(order.trader, refundAmount);
             _removeBuyOrder(orderId, projectBuyOrders[order.projectId]);
         } else {
@@ -332,7 +332,7 @@ abstract contract OrderBook is DataTypes {
 
         // Use seller's price (price improvement for buyer)
         uint256 tradePrice = sellOrder.pricePerShare;
-        uint256 tradeValue = (tradedShares * tradePrice) / 1e18; // @alqaqa : check this
+        uint256 tradeValue = (tradedShares * tradePrice) / 1e18; 
 
         // Calculate fees
         uint256 fee = (tradeValue * tradingFeeRate) / 10000;
@@ -344,7 +344,7 @@ abstract contract OrderBook is DataTypes {
         IERC20(project.purchaseToken).safeTransfer(sellOrder.trader, sellerReceives);
 
         // Refund excess to buyer if they paid more
-        uint256 buyerPaid = (tradedShares * buyOrder.pricePerShare) / 1e18; // @alqaqa : check this
+        uint256 buyerPaid = (tradedShares * buyOrder.pricePerShare) / 1e18;
         if (buyerPaid > tradeValue) {
             IERC20(project.purchaseToken).safeTransfer(buyOrder.trader, buyerPaid - tradeValue);
         }
