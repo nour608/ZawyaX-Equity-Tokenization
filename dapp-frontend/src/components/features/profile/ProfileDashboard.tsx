@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PageHeader } from "@/components/layout/Header";
 import { formatTokenAmount, formatTimeAgo, getInitials, truncateAddress } from "@/lib/utils";
 import { UserProfile } from "@/lib/types";
@@ -24,7 +25,8 @@ import {
   MapPin,
   Briefcase,
   DollarSign,
-  TrendingUp
+  TrendingUp,
+  AlertCircle
 } from "lucide-react";
 
 export function ProfileDashboard() {
@@ -32,15 +34,15 @@ export function ProfileDashboard() {
   const [activeTab, setActiveTab] = useState<'overview' | 'skills' | 'history'>('overview');
   
   // Get real data from hooks and context
-  const { userProfile: contractProfile, updateProfile, isLoading } = useUserRegistry();
-  const { userProfile: contextProfile } = useUserProfile();
+  const { userProfile: contractProfile, updateProfile, isLoading, error: contractError } = useUserRegistry();
+  const { profile: contextProfile } = useUserProfile();
   
   // Use contract profile if available, otherwise fall back to context profile
   const profileData = contractProfile || contextProfile;
   
   const [profileForm, setProfileForm] = useState<UserProfile>(
     profileData || {
-      address: '',
+      address: '0x0000000000000000000000000000000000000000' as `0x${string}`,
       name: '',
       bio: '',
       avatar: '/images/default-avatar.png',
@@ -62,7 +64,7 @@ export function ProfileDashboard() {
   const handleCancel = () => {
     // Reset to original data
     setProfileForm(profileData || {
-      address: '',
+      address: '0x0000000000000000000000000000000000000000' as `0x${string}`,
       name: '',
       bio: '',
       avatar: '/images/default-avatar.png',
@@ -78,6 +80,18 @@ export function ProfileDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Contract Configuration Warning */}
+      {contractError && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Contract Not Configured</AlertTitle>
+          <AlertDescription>
+            Smart contracts are not configured. Profile data will be stored locally only.
+            {contractError}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Page Header */}
       <PageHeader
         title="Profile"
@@ -105,9 +119,9 @@ export function ProfileDashboard() {
             <CardHeader className="text-center">
               <div className="flex justify-center">
                 <Avatar className="w-24 h-24">
-                  <AvatarImage src={profileData.avatar} alt={profileData.name} />
+                  <AvatarImage src={profileForm.avatar} alt={profileForm.name} />
                   <AvatarFallback className="text-2xl">
-                    {getInitials(profileData.name || "User")}
+                    {getInitials(profileForm.name || "User")}
                   </AvatarFallback>
                 </Avatar>
               </div>
@@ -115,13 +129,13 @@ export function ProfileDashboard() {
               {isEditing ? (
                 <div className="space-y-2">
                   <Input
-                    value={profileData.name || ""}
-                    onChange={(e) => setProfileData({...profileData, name: e.target.value})}
+                    value={profileForm.name || ""}
+                    onChange={(e) => setProfileForm({...profileForm, name: e.target.value})}
                     placeholder="Your name"
                   />
                   <textarea
-                    value={profileData.bio || ""}
-                    onChange={(e) => setProfileData({...profileData, bio: e.target.value})}
+                    value={profileForm.bio || ""}
+                    onChange={(e) => setProfileForm({...profileForm, bio: e.target.value})}
                     placeholder="Tell us about yourself..."
                     className="w-full p-2 text-sm border rounded-md resize-none"
                     rows={3}
@@ -129,9 +143,9 @@ export function ProfileDashboard() {
                 </div>
               ) : (
                 <>
-                  <CardTitle className="text-xl">{profileData.name || "Anonymous User"}</CardTitle>
+                  <CardTitle className="text-xl">{profileForm.name || "Anonymous User"}</CardTitle>
                   <p className="text-muted-foreground text-sm">
-                    {profileData.bio || "No bio provided"}
+                    {profileForm.bio || "No bio provided"}
                   </p>
                 </>
               )}
@@ -139,11 +153,11 @@ export function ProfileDashboard() {
               <div className="flex items-center justify-center gap-4 pt-2">
                 <div className="flex items-center gap-1">
                   <Star className="w-4 h-4 text-yellow-500" />
-                  <span className="font-medium">{profileData.reputation}</span>
+                  <span className="font-medium">{profileForm.reputation}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Trophy className="w-4 h-4 text-blue-500" />
-                  <span className="font-medium">{profileData.completedJobs}</span>
+                  <span className="font-medium">{profileForm.completedJobs}</span>
                 </div>
               </div>
             </CardHeader>
@@ -154,7 +168,7 @@ export function ProfileDashboard() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Wallet</span>
                   <span className="font-mono">
-                    {profileData.address.slice(0, 6)}...{profileData.address.slice(-4)}
+                    {profileForm.address.slice(0, 6)}...{profileForm.address.slice(-4)}
                   </span>
                 </div>
               </div>
@@ -162,7 +176,7 @@ export function ProfileDashboard() {
               {/* Join Date */}
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Calendar className="w-4 h-4" />
-                <span>Joined {formatTimeAgo(profileData.joinedAt)}</span>
+                <span>Joined {formatTimeAgo(profileForm.joinedAt)}</span>
               </div>
 
               {/* Social Links */}
@@ -172,42 +186,42 @@ export function ProfileDashboard() {
                   <div className="space-y-2">
                     <Input
                       placeholder="Twitter username"
-                      value={profileData.socialLinks?.twitter || ""}
-                      onChange={(e) => setProfileData({
-                        ...profileData,
-                        socialLinks: { ...profileData.socialLinks, twitter: e.target.value }
+                      value={profileForm.socialLinks?.twitter || ""}
+                      onChange={(e) => setProfileForm({
+                        ...profileForm,
+                        socialLinks: { ...profileForm.socialLinks, twitter: e.target.value }
                       })}
                     />
                     <Input
                       placeholder="GitHub username"
-                      value={profileData.socialLinks?.github || ""}
-                      onChange={(e) => setProfileData({
-                        ...profileData,
-                        socialLinks: { ...profileData.socialLinks, github: e.target.value }
+                      value={profileForm.socialLinks?.github || ""}
+                      onChange={(e) => setProfileForm({
+                        ...profileForm,
+                        socialLinks: { ...profileForm.socialLinks, github: e.target.value }
                       })}
                     />
                     <Input
                       placeholder="LinkedIn username"
-                      value={profileData.socialLinks?.linkedin || ""}
-                      onChange={(e) => setProfileData({
-                        ...profileData,
-                        socialLinks: { ...profileData.socialLinks, linkedin: e.target.value }
+                      value={profileForm.socialLinks?.linkedin || ""}
+                      onChange={(e) => setProfileForm({
+                        ...profileForm,
+                        socialLinks: { ...profileForm.socialLinks, linkedin: e.target.value }
                       })}
                     />
                   </div>
                 ) : (
                   <div className="flex gap-2">
-                    {profileData.socialLinks?.twitter && (
+                    {profileForm.socialLinks?.twitter && (
                       <Button variant="outline" size="icon">
                         <Twitter className="w-4 h-4" />
                       </Button>
                     )}
-                    {profileData.socialLinks?.github && (
+                    {profileForm.socialLinks?.github && (
                       <Button variant="outline" size="icon">
                         <Github className="w-4 h-4" />
                       </Button>
                     )}
-                    {profileData.socialLinks?.linkedin && (
+                    {profileForm.socialLinks?.linkedin && (
                       <Button variant="outline" size="icon">
                         <Linkedin className="w-4 h-4" />
                       </Button>
@@ -238,11 +252,11 @@ export function ProfileDashboard() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold">{profileData.completedJobs}</div>
+                  <div className="text-2xl font-bold">{profileForm.completedJobs}</div>
                   <div className="text-xs text-muted-foreground">Jobs Completed</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold">{profileData.reputation}</div>
+                  <div className="text-2xl font-bold">{profileForm.reputation}</div>
                   <div className="text-xs text-muted-foreground">Rating</div>
                 </div>
               </div>
@@ -252,7 +266,7 @@ export function ProfileDashboard() {
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Total Earnings</span>
-                  <span className="font-medium">{formatTokenAmount(profileData.totalEarnings)} ETH</span>
+                  <span className="font-medium">{formatTokenAmount(profileForm.totalEarnings)} ETH</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Success Rate</span>
@@ -278,9 +292,9 @@ export function ProfileDashboard() {
                 <div className="space-y-2">
                   <Input
                     placeholder="Add skills (comma separated)"
-                    value={profileData.skills.join(", ")}
-                    onChange={(e) => setProfileData({
-                      ...profileData,
+                    value={profileForm.skills.join(", ")}
+                    onChange={(e) => setProfileForm({
+                      ...profileForm,
                       skills: e.target.value.split(",").map(s => s.trim()).filter(Boolean)
                     })}
                   />
@@ -290,7 +304,7 @@ export function ProfileDashboard() {
                 </div>
               ) : (
                 <div className="flex flex-wrap gap-2">
-                  {profileData.skills.map((skill, index) => (
+                  {profileForm.skills.map((skill: string, index: number) => (
                     <Badge key={index} variant="secondary">
                       {skill}
                     </Badge>

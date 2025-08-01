@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PageHeader } from "@/components/layout/Header";
 import { formatTokenAmount, formatTimeAgo, truncateAddress } from "@/lib/utils";
 import { FreelanceJob } from "@/lib/types";
@@ -18,7 +19,8 @@ import {
   User,
   Eye,
   MessageCircle,
-  TrendingUp
+  TrendingUp,
+  AlertCircle
 } from "lucide-react";
 
 interface JobCardProps {
@@ -128,7 +130,7 @@ export function FreelanceDashboard() {
   const [selectedCategory, setSelectedCategory] = useState("all");
 
   // Get real data from hooks
-  const { allJobs, myJobs, isLoading } = useFreelanceContract();
+  const { allJobs, myJobs, isLoading, error: contractError } = useFreelanceContract();
   const { userAddress } = useAppState();
 
   // Filter jobs based on active tab
@@ -171,6 +173,18 @@ export function FreelanceDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Contract Configuration Warning */}
+      {contractError && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Contract Not Configured</AlertTitle>
+          <AlertDescription>
+            Smart contracts are not configured. Job data will be displayed from mock data.
+            {contractError}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Page Header */}
       <PageHeader
         title="Freelance Marketplace"
@@ -331,7 +345,7 @@ export function FreelanceDashboard() {
                 <JobCard
                   key={job.id}
                   job={job}
-                  userAddress={userAddress}
+                  userAddress={userAddress || undefined}
                   onApply={handleApply}
                   onViewDetails={handleViewDetails}
                 />

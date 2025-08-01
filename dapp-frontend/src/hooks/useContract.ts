@@ -86,7 +86,7 @@ export function useEquityToken(tokenAddress?: `0x${string}`) {
  */
 export function useEquityFactory() {
   // Read operations
-  const { data: allTokens, isLoading, refetch } = useContractRead<EquityToken[]>(
+  const { data: allTokens, isLoading, refetch, error } = useContractRead<EquityToken[]>(
     'factory',
     'getAllTokens'
   );
@@ -111,6 +111,7 @@ export function useEquityFactory() {
     // Data
     allTokens: allTokens || [],
     isLoading,
+    error,
     
     // Actions
     createToken: handleCreateToken,
@@ -129,7 +130,7 @@ export function useEquityFactory() {
  */
 export function useUserRegistry() {
   // Read operations
-  const { data: userProfile, isLoading: profileLoading, refetch: refetchProfile } = useContractRead<UserProfile>(
+  const { data: userProfile, isLoading: profileLoading, refetch: refetchProfile, error } = useContractRead<UserProfile>(
     'userRegistry',
     'getUserProfile'
   );
@@ -157,6 +158,7 @@ export function useUserRegistry() {
     // Data
     userProfile: userProfile || null,
     isLoading: profileLoading,
+    error,
     
     // Actions
     updateProfile: handleUpdateProfile,
@@ -180,12 +182,12 @@ export function useUserRegistry() {
  */
 export function useFreelanceContract() {
   // Read operations
-  const { data: allJobs, isLoading: jobsLoading, refetch: refetchJobs } = useContractRead<FreelanceJob[]>(
+  const { data: allJobs, isLoading: jobsLoading, refetch: refetchJobs, error: allJobsError } = useContractRead<FreelanceJob[]>(
     'freelance',
     'getAllJobs'
   );
 
-  const { data: myJobs, isLoading: myJobsLoading, refetch: refetchMyJobs } = useContractRead<FreelanceJob[]>(
+  const { data: myJobs, isLoading: myJobsLoading, refetch: refetchMyJobs, error: myJobsError } = useContractRead<FreelanceJob[]>(
     'freelance',
     'getMyJobs'
   );
@@ -231,6 +233,7 @@ export function useFreelanceContract() {
     
     // Loading states
     isLoading: jobsLoading || myJobsLoading,
+    error: allJobsError || myJobsError,
     
     // Actions
     postJob: handlePostJob,

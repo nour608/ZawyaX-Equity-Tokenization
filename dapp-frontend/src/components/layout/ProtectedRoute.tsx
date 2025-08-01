@@ -85,8 +85,8 @@ function WalletConnectionScreen() {
           <div className="flex flex-col items-center gap-4">
             <WalletConnection 
               showBuyCrypto={true}
-              onConnect={(address) => {
-                console.log("User connected:", address);
+              onConnect={() => {
+                console.log("User connected");
                 // Navigation will happen automatically due to state change
               }}
               className="w-full justify-center"

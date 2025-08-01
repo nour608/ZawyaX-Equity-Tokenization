@@ -69,6 +69,52 @@ yarn dev
 
 The app will be available at `http://localhost:5173`
 
+## Smart Contract Configuration
+
+The application requires smart contract addresses to be configured for full functionality. If contracts are not configured, the app will display warning messages and fall back to local/mock data.
+
+### Required Environment Variables
+
+Create a `.env.local` file in the root directory with the following variables:
+
+```env
+# App Configuration
+VITE_APP_NAME="ZawyaX"
+VITE_APP_URL="http://localhost:5173"
+
+# Chain Configuration
+VITE_CHAIN_ID="84531"  # Base Sepolia testnet (use "8453" for mainnet)
+
+# Smart Contract Addresses
+VITE_FACTORY_CONTRACT="0x..."  # Equity token factory contract
+VITE_EQUITY_TOKEN_CONTRACT="0x..."  # Equity token template contract
+VITE_CURRENCY_MANAGER_CONTRACT="0x..."  # Currency management contract
+VITE_USER_REGISTRY_CONTRACT="0x..."  # User profile registry contract
+VITE_FREELANCE_CONTRACT="0x..."  # Freelance marketplace contract
+VITE_PROFILE_CONTRACT="0x..."  # Profile management contract
+VITE_CHAT_CONTRACT="0x..."  # Chat contract
+
+# Thirdweb Configuration
+VITE_THIRDWEB_CLIENT_ID="your-thirdweb-client-id"
+VITE_THIRDWEB_SECRET_KEY="your-thirdweb-secret-key"
+```
+
+### Contract Features
+
+- **Equity Factory**: Create and manage equity tokens
+- **User Registry**: Store and manage user profiles
+- **Freelance Marketplace**: Post and manage freelance jobs
+- **Chat System**: On-chain messaging (optional, Nostr is used for chat)
+
+### Fallback Behavior
+
+When contracts are not configured:
+- ✅ App will still load and function
+- ✅ Nostr features work independently
+- ✅ UI displays warning messages
+- ✅ Local state management works
+- ❌ Smart contract interactions are disabled
+
 ## Nostr Integration
 
 This application includes full Nostr protocol integration for decentralized social features:

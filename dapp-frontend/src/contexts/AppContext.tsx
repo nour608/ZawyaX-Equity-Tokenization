@@ -9,7 +9,7 @@ type AppAction =
   | { type: "SET_ERROR"; payload: string | null }
   | { type: "SET_USER_PROFILE"; payload: UserProfile | null }
   | { type: "SET_CHAIN"; payload: number }
-  | { type: "ADD_NOTIFICATION"; payload: Omit<Notification, "id"> }
+  | { type: "ADD_NOTIFICATION"; payload: Omit<Notification, "id" | "timestamp" | "read"> }
   | { type: "REMOVE_NOTIFICATION"; payload: string }
   | { type: "MARK_NOTIFICATION_READ"; payload: string }
   | { type: "CLEAR_NOTIFICATIONS" };
@@ -105,11 +105,6 @@ export function AppProvider({ children }: AppProviderProps) {
   // Update connection state when account changes
   useEffect(() => {
     if (account) {
-      const newState = {
-        ...state,
-        isConnected: true,
-        userAddress: account.address as `0x${string}`,
-      };
       
       // Load user profile from real data source
       // This should be replaced with actual profile loading logic
@@ -139,6 +134,8 @@ export function AppProvider({ children }: AppProviderProps) {
           type: "success",
           title: "Wallet Connected",
           message: `Successfully connected to ${account.address.slice(0, 6)}...${account.address.slice(-4)}`,
+          timestamp: new Date(),
+          read: false,
         },
       });
     } else {
@@ -152,6 +149,8 @@ export function AppProvider({ children }: AppProviderProps) {
             type: "info",
             title: "Wallet Disconnected",
             message: "Your wallet has been disconnected",
+            timestamp: new Date(),
+            read: false,
           },
         });
       }

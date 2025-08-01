@@ -47,6 +47,7 @@ export function WalletConnection({
         chains={supportedChains}
         onConnect={(wallet) => {
           console.log("Wallet connected:", wallet.getAccount()?.address);
+          console.log("Connected to network:", wallet.getChain()?.name);
           onConnect?.();
         }}
         connectModal={{
@@ -72,7 +73,7 @@ export function WalletConnection({
             variant="outline"
             size="sm"
             onClick={handleNetworkSwitch}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 hover:bg-primary/10"
           >
             <Network className="w-4 h-4" />
             <span className="hidden sm:inline">Switch Network</span>
@@ -92,10 +93,24 @@ export function NetworkIndicator() {
 
   if (!chain) return null;
 
+  // Get network icon based on chain
+  const getNetworkIcon = (chainName: string) => {
+    const name = chainName.toLowerCase();
+    if (name.includes('ethereum')) return '🔵';
+    if (name.includes('base')) return '🔷';
+    if (name.includes('polygon')) return '🟣';
+    if (name.includes('optimism')) return '🔴';
+    if (name.includes('arbitrum')) return '🔵';
+    if (name.includes('avalanche')) return '🔴';
+    if (name.includes('bsc')) return '🟡';
+    if (name.includes('etherlink')) return '🟢';
+    return '🌐';
+  };
+
   return (
     <div className="flex items-center gap-2 px-3 py-1 bg-muted/50 rounded-full text-xs">
       <div className="w-2 h-2 rounded-full bg-green-500" />
-      <span className="font-medium">{chain.name}</span>
+      <span className="font-medium">{getNetworkIcon(chain.name || '')} {chain.name}</span>
     </div>
   );
 }

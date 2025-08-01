@@ -47,10 +47,10 @@ export function NostrChatDashboard() {
   // Subscribe to feed when connected
   useEffect(() => {
     if (relays.some(r => r.status === 'connected')) {
-      // Subscribe to global feed
+      // Subscribe to global feed with conservative limits for better performance
       subscribeToFeed([
-        { kinds: [EventKind.TextNote], limit: 50 },
-        { kinds: [EventKind.Metadata], limit: 100 }
+        { kinds: [EventKind.TextNote], limit: 20 }, // Reduced from 50
+        { kinds: [EventKind.Metadata], limit: 50 }  // Reduced from 100
       ]);
 
       // Load own profile if keys exist

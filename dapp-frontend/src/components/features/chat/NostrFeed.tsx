@@ -1,12 +1,13 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useNostrStore } from "@/lib/nostr/store";
 import { EventKind, NostrEvent } from "@/lib/nostr/types";
-import { formatTimestamp, truncateKey, replaceMentions } from "@/lib/nostr/utils";
+import { formatTimestamp, truncateKey, replaceMentions, formatPublicKey } from "@/lib/nostr/utils";
 import ReactMarkdown from "react-markdown";
 import { 
   Heart, 
@@ -17,13 +18,26 @@ import {
   Send,
   Image,
   Hash,
-  AtSign
+  AtSign,
+  Search,
+  Filter,
+  ChevronDown,
+  AlertCircle
 } from "lucide-react";
 
 export function NostrFeed() {
   const [postContent, setPostContent] = useState("");
   const [isPosting, setIsPosting] = useState(false);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterType, setFilterType] = useState<"all" | "following" | "trending">("all");
+  const [displayLimit, setDisplayLimit] = useState(20);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  // Reset display limit when filters change
+  useEffect(() => {
+    setDisplayLimit(20);
+  }, [searchQuery, filterType]);
   
   const { 
     events, 
@@ -31,17 +45,48 @@ export function NostrFeed() {
     publishEvent,
     likeEvent,
     repostEvent,
-    replyToEvent
+    replyToEvent,
+    isConnecting,
+    error
   } = useNostrStore();
 
-  // Filter and sort feed events
+  // Filter and sort feed events with performance optimizations
   const feedEvents = useMemo(() => {
-    const textNotes = Array.from(events.values())
+    // Ensure events is a Map object
+    if (!events || typeof events !== 'object' || !events.values) {
+      return [];
+    }
+    
+    let textNotes = Array.from(events.values())
       .filter(event => event.kind === EventKind.TextNote)
       .sort((a, b) => b.created_at - a.created_at);
-    
-    return textNotes;
-  }, [events]);
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      textNotes = textNotes.filter(event => 
+        event.content.toLowerCase().includes(query) ||
+        event.pubkey.toLowerCase().includes(query)
+      );
+    }
+
+    // Apply type filter
+    if (filterType === "trending") {
+      // Sort by engagement (likes, reposts, replies) - simplified for now
+      textNotes = textNotes.slice(0, 50); // Limit for trending calculation
+    }
+
+    // Limit display
+    return textNotes.slice(0, displayLimit);
+  }, [events, searchQuery, filterType, displayLimit]);
+
+  const handleLoadMore = useCallback(() => {
+    setIsLoadingMore(true);
+    setTimeout(() => {
+      setDisplayLimit(prev => prev + 10);
+      setIsLoadingMore(false);
+    }, 500);
+  }, []);
 
   const handlePost = async () => {
     if (!postContent.trim()) return;
@@ -72,7 +117,7 @@ export function NostrFeed() {
     if (e.key === 'Enter' && e.ctrlKey) {
       e.preventDefault();
       if (replyingTo) {
-        const event = events.get(replyingTo);
+        const event = events && typeof events.get === 'function' ? events.get(replyingTo) : undefined;
         if (event) handleReply(event);
       } else {
         handlePost();
@@ -127,7 +172,7 @@ export function NostrFeed() {
                   {postContent.length}/280
                 </span>
                 <Button 
-                  onClick={() => replyingTo ? handleReply(events.get(replyingTo)!) : handlePost()}
+                  onClick={() => replyingTo && events && typeof events.get === 'function' ? handleReply(events.get(replyingTo)!) : handlePost()}
                   disabled={!postContent.trim() || isPosting}
                   size="sm"
                 >
@@ -140,25 +185,99 @@ export function NostrFeed() {
         </CardContent>
       </Card>
 
+      {/* Feed Filters */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search posts..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            
+            <div className="relative">
+              <Button
+                variant="outline"
+                className="w-40 justify-between"
+                onClick={() => setFilterType(prev => prev === "all" ? "following" : prev === "following" ? "trending" : "all")}
+              >
+                {filterType === "all" ? "All Posts" : filterType === "following" ? "Following" : "Trending"}
+                <ChevronDown className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Feed */}
       <div className="space-y-4">
-        {feedEvents.length === 0 ? (
+        {/* Loading State */}
+        {isConnecting && feedEvents.length === 0 && (
+          <Card>
+            <CardContent className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading feed...</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-destructive">
+                <AlertCircle className="w-4 h-4" />
+                <span className="text-sm">{error}</span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Empty State */}
+        {!isConnecting && feedEvents.length === 0 && !error ? (
           <Card>
             <CardContent className="text-center py-8">
               <p className="text-muted-foreground">
-                No posts yet. Be the first to post!
+                {searchQuery ? "No posts match your search." : "No posts yet. Be the first to post!"}
               </p>
             </CardContent>
           </Card>
         ) : (
-          feedEvents.map((event) => (
-            <FeedPost 
-              key={event.id} 
-              event={event}
-              profile={profiles.get(event.pubkey)}
-              onReply={() => setReplyingTo(event.id)}
-            />
-          ))
+          <>
+            {feedEvents.map((event) => (
+              <FeedPost 
+                key={event.id} 
+                event={event}
+                profile={profiles && typeof profiles.get === 'function' ? profiles.get(event.pubkey) : undefined}
+                onReply={() => setReplyingTo(event.id)}
+              />
+            ))}
+            
+            {/* Load More Button */}
+            {feedEvents.length >= displayLimit && (
+              <div className="text-center">
+                <Button 
+                  variant="outline" 
+                  onClick={handleLoadMore}
+                  disabled={isLoadingMore}
+                  className="w-full"
+                >
+                  {isLoadingMore ? (
+                    "Loading..."
+                  ) : (
+                    <>
+                      <ChevronDown className="w-4 h-4 mr-2" />
+                      Load More Posts
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -177,20 +296,23 @@ function FeedPost({ event, profile, onReply }: FeedPostProps) {
   const [isReposted, setIsReposted] = useState(false);
   const [showActions, setShowActions] = useState(false);
 
-  const handleLike = async () => {
+  // Memoize expensive computations
+  const isReply = useMemo(() => 
+    event.tags.some(tag => tag[0] === 'e' && tag[3] === 'reply'), 
+    [event.tags]
+  );
+
+  const handleLike = useCallback(async () => {
     if (isLiked) return;
     setIsLiked(true);
     await likeEvent(event.id);
-  };
+  }, [isLiked, likeEvent, event.id]);
 
-  const handleRepost = async () => {
+  const handleRepost = useCallback(async () => {
     if (isReposted) return;
     setIsReposted(true);
     await repostEvent(event);
-  };
-
-  // Parse content for replies
-  const isReply = event.tags.some(tag => tag[0] === 'e' && tag[3] === 'reply');
+  }, [isReposted, repostEvent, event]);
   
   return (
     <Card 
@@ -212,7 +334,7 @@ function FeedPost({ event, profile, onReply }: FeedPostProps) {
             <div>
               <div className="flex items-center gap-2">
                 <h4 className="font-medium">
-                  {profile?.display_name || profile?.name || truncateKey(event.pubkey, 8)}
+                  {profile?.display_name || profile?.name || formatPublicKey(event.pubkey)}
                 </h4>
                 {profile?.nip05 && (
                   <Badge variant="secondary" className="text-xs">
@@ -221,7 +343,7 @@ function FeedPost({ event, profile, onReply }: FeedPostProps) {
                 )}
               </div>
               <p className="text-sm text-muted-foreground">
-                {truncateKey(event.pubkey, 8)} · {formatTimestamp(event.created_at)}
+                {formatPublicKey(event.pubkey)} · {formatTimestamp(event.created_at)}
               </p>
             </div>
           </div>

@@ -27,6 +27,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.0.0",
     "date-fns": "^4.1.0",
+    "devtools": "^8.42.0",
     "ethers": "^6.8.0",
     "lucide-react": "^0.292.0",
     "nostr-tools": "^2.15.2",

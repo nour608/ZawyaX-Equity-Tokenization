@@ -157,6 +157,24 @@ export function truncateKey(key: string, length: number = 8): string {
   return `${key.slice(0, length)}...${key.slice(-length)}`;
 }
 
+// Format public key for better display
+export function formatPublicKey(pubkey: string): string {
+  // If it's already an npub format, truncate it nicely
+  if (pubkey.startsWith('npub1')) {
+    return `@${truncateKey(pubkey, 6)}`;
+  }
+  
+  // If it's a hex public key, convert to npub first
+  try {
+    const { nip19 } = require('nostr-tools');
+    const npub = nip19.npubEncode(pubkey);
+    return `@${truncateKey(npub, 6)}`;
+  } catch (error) {
+    // Fallback to hex format with @ prefix
+    return `@${truncateKey(pubkey, 6)}`;
+  }
+}
+
 // Validate event signature
 export function isValidEvent(event: NostrEvent): boolean {
   try {

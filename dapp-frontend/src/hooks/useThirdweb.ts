@@ -74,13 +74,23 @@ export function useContractRead<T>(
 
   const contract = getContractInstance(contractKey);
 
+  // If contract is not available, return early with error state
+  if (!contract) {
+    return {
+      data: null,
+      isLoading: false,
+      error: `Contract ${contractKey} not configured`,
+      refetch: async () => {},
+    };
+  }
+
   const {
     data: contractData,
     isLoading: contractLoading,
     error: contractError,
     refetch: contractRefetch,
   } = useReadContract({
-    contract: contract!,
+    contract,
     method: functionName,
     params: args,
     queryOptions: {
@@ -116,6 +126,20 @@ export function useContractWrite(
 
   const contract = getContractInstance(contractKey);
   const { mutate: sendTransaction } = useSendTransaction();
+
+  // If contract is not available, return early with error state
+  if (!contract) {
+    return {
+      execute: async () => {
+        setTransaction({ 
+          status: 'error', 
+          error: `Contract ${contractKey} not configured` 
+        });
+      },
+      transaction: { status: 'idle' },
+      reset: () => {},
+    };
+  }
 
   const execute = useCallback(async (...args: unknown[]) => {
     if (!contract) {

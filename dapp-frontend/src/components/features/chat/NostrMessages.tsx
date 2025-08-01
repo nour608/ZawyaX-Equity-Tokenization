@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useNostrStore } from "@/lib/nostr/store";
 import { Contact, DirectMessage } from "@/lib/nostr/types";
-import { formatTimestamp, truncateKey } from "@/lib/nostr/utils";
+import { formatTimestamp, truncateKey, formatPublicKey } from "@/lib/nostr/utils";
 // import { nip19 } from "nostr-tools";
 import { 
   Send, 
@@ -41,10 +41,11 @@ export function NostrMessages() {
     loadMessages,
     loadProfile,
     connectToRelays,
-    addContact
+    addContact,
+    subscribeToMessages
   } = useNostrStore();
 
-  // Connect to relays when component mounts
+  // Connect to relays and subscribe to messages when component mounts
   useEffect(() => {
     if (keys && relays.length === 0) {
       console.log('Connecting to relays...');
@@ -52,18 +53,28 @@ export function NostrMessages() {
     }
   }, [keys, relays.length, connectToRelays]);
 
+  // Subscribe to messages when relays are connected
+  useEffect(() => {
+    if (keys && relays.some(r => r.status === 'connected')) {
+      console.log('Subscribing to messages...');
+      subscribeToMessages();
+    }
+  }, [keys, relays, subscribeToMessages]);
+
   // Get unique contacts from messages
-  const messageContacts = Array.from(messages.entries()).map(([key, msgs]) => {
-    const [pubkey1, pubkey2] = key.split('-');
-    const otherPubkey = pubkey1 === keys?.pubkey ? pubkey2 : pubkey1;
-    const lastMessage = msgs[msgs.length - 1];
-    
-    return {
-      pubkey: otherPubkey,
-      lastMessage,
-      unreadCount: msgs.filter(m => m.pubkey !== keys?.pubkey && !m.read).length
-    } as Contact;
-  });
+  const messageContacts = messages && typeof messages.entries === 'function' 
+    ? Array.from(messages.entries()).map(([key, msgs]) => {
+        const [pubkey1, pubkey2] = key.split('-');
+        const otherPubkey = pubkey1 === keys?.pubkey ? pubkey2 : pubkey1;
+        const lastMessage = msgs[msgs.length - 1];
+        
+        return {
+          pubkey: otherPubkey,
+          lastMessage,
+          unreadCount: msgs.filter(m => m.pubkey !== keys?.pubkey && !m.read).length
+        } as Contact;
+      })
+    : [];
 
   // Combine with stored contacts
   const allContacts = [...messageContacts, ...contacts.filter(c => 
@@ -72,7 +83,7 @@ export function NostrMessages() {
 
   // Filter contacts
   const filteredContacts = allContacts.filter(contact => {
-    const profile = profiles.get(contact.pubkey);
+    const profile = profiles && typeof profiles.get === 'function' ? profiles.get(contact.pubkey) : undefined;
     const searchLower = searchQuery.toLowerCase();
     return (
       contact.pubkey.toLowerCase().includes(searchLower) ||
@@ -82,7 +93,7 @@ export function NostrMessages() {
   });
 
   // Get current conversation
-  const currentMessages = selectedContact && keys
+  const currentMessages = selectedContact && keys && messages && typeof messages.get === 'function'
     ? messages.get([keys.pubkey, selectedContact].sort().join('-')) || []
     : [];
 
@@ -141,7 +152,7 @@ export function NostrMessages() {
   return (
     <div className="flex h-full">
       {/* Contacts Sidebar */}
-      <div className="w-80 border-r border-border flex flex-col">
+      <div className="w-64 border-r border-border flex flex-col">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5" />
@@ -180,7 +191,7 @@ export function NostrMessages() {
           )}
         </CardHeader>
 
-        <ScrollArea className="h-[450px]">
+        <ScrollArea className="flex-1">
           <CardContent className="p-0">
             {/* New Contact Input */}
             {showNewContact && (
@@ -212,7 +223,7 @@ export function NostrMessages() {
                 </div>
               ) : (
                 filteredContacts.map((contact) => {
-                  const profile = profiles.get(contact.pubkey);
+                  const profile = profiles && typeof profiles.get === 'function' ? profiles.get(contact.pubkey) : undefined;
                   const isSelected = selectedContact === contact.pubkey;
                   
                   return (
@@ -243,7 +254,7 @@ export function NostrMessages() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <p className="font-medium text-sm truncate">
-                            {profile?.display_name || profile?.name || truncateKey(contact.pubkey)}
+                            {profile?.display_name || profile?.name || formatPublicKey(contact.pubkey)}
                           </p>
                           {contact.lastMessage && (
                             <span className="text-xs text-muted-foreground">
@@ -270,7 +281,7 @@ export function NostrMessages() {
       </div>
 
       {/* Chat Area */}
-      <Card className="lg:col-span-2 flex flex-col">
+      <Card className="flex-1 flex flex-col">
         {selectedContact ? (
           <>
             {/* Chat Header */}
@@ -278,16 +289,19 @@ export function NostrMessages() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Avatar>
-                    <AvatarImage src={profiles.get(selectedContact)?.picture} />
+                    <AvatarImage src={profiles && typeof profiles.get === 'function' ? profiles.get(selectedContact)?.picture : undefined} />
                     <AvatarFallback>
-                      {profiles.get(selectedContact)?.name?.[0]?.toUpperCase() || <User className="w-4 h-4" />}
+                      {profiles && typeof profiles.get === 'function' ? profiles.get(selectedContact)?.name?.[0]?.toUpperCase() || <User className="w-4 h-4" /> : <User className="w-4 h-4" />}
                     </AvatarFallback>
                   </Avatar>
                   <div>
                     <h3 className="font-medium">
-                      {profiles.get(selectedContact)?.display_name || 
-                       profiles.get(selectedContact)?.name || 
-                       truncateKey(selectedContact)}
+                      {profiles && typeof profiles.get === 'function' ? 
+                        profiles.get(selectedContact)?.display_name || 
+                        profiles.get(selectedContact)?.name || 
+                        formatPublicKey(selectedContact) : 
+                        formatPublicKey(selectedContact)
+                      }
                     </h3>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Lock className="w-3 h-3" />

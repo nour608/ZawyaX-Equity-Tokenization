@@ -3,6 +3,9 @@ import { Outlet, Navigate } from "react-router-dom";
 import { useActiveAccount } from "thirdweb/react";
 import { Sidebar, MobileSidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
+import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
+import { NotificationToasts } from "@/components/layout/NotificationToasts";
+import { ToastProvider, ToastViewport } from "@/components/ui/toast";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { STORAGE_KEYS, ROUTES } from "@/lib/constants";
 
@@ -68,6 +71,12 @@ export function AppLayout() {
             </div>
           </main>
         </div>
+
+        {/* Notifications */}
+        <ToastProvider>
+          <NotificationToasts />
+          <ToastViewport />
+        </ToastProvider>
       </div>
     );
 }

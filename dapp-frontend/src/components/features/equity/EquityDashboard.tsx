@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { EquityTokenCard, EquityTokenRow } from "./EquityTokenCard";
 import { PageHeader } from "@/components/layout/Header";
 import { formatTokenAmount, truncateAddress } from "@/lib/utils";
@@ -21,7 +22,8 @@ import {
   TrendingDown, 
   DollarSign,
   Users,
-  Activity
+  Activity,
+  AlertCircle
 } from "lucide-react";
 
 type ViewMode = 'grid' | 'list';
@@ -33,7 +35,7 @@ export function EquityDashboard() {
   const [selectedCategory, setSelectedCategory] = useState("all");
 
   // Get real data from hooks
-  const { allTokens, isLoading } = useEquityFactory();
+  const { allTokens, isLoading, error: contractError } = useEquityFactory();
   
   // Filter tokens based on search
   const filteredTokens = allTokens.filter(token => {
@@ -55,6 +57,18 @@ export function EquityDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Contract Configuration Warning */}
+      {contractError && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Contract Not Configured</AlertTitle>
+          <AlertDescription>
+            Smart contracts are not configured. Token data will be displayed from mock data.
+            {contractError}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Page Header */}
       <PageHeader
         title="Equity Tokens"

@@ -99,7 +99,7 @@ export function Header({
             <WalletInfo 
               address={account.address as `0x${string}`}
               // These would come from hooks/context in a real app
-              balance="1.234"
+              balance={undefined}
             />
             <Button
               variant="outline"
