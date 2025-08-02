@@ -70,7 +70,7 @@ abstract contract OrderBook is DataTypes {
             shares: shares,
             sharesRemaining: shares,
             pricePerShare: pricePerShare,
-            totalValue: (shares * pricePerShare) / 1e18, 
+            totalValue: (shares * pricePerShare) / 1e18,
             timestamp: block.timestamp,
             expirationTime: expirationTime,
             status: DataTypes.OrderStatus.ACTIVE,
@@ -79,7 +79,7 @@ abstract contract OrderBook is DataTypes {
 
         // Lock tokens/funds
         if (orderType == DataTypes.OrderType.BUY) {
-            uint256 totalCost = (shares * pricePerShare) / 1e18; 
+            uint256 totalCost = (shares * pricePerShare) / 1e18;
             IERC20(project.purchaseToken).safeTransferFrom(msg.sender, address(this), totalCost);
             _insertBuyOrder(orderId, projectBuyOrders[projectId]);
         } else {
@@ -110,7 +110,7 @@ abstract contract OrderBook is DataTypes {
 
         // Return locked tokens/funds
         if (order.orderType == DataTypes.OrderType.BUY) {
-            uint256 refundAmount = (order.sharesRemaining * order.pricePerShare) / 1e18; 
+            uint256 refundAmount = (order.sharesRemaining * order.pricePerShare) / 1e18;
             IERC20(project.purchaseToken).safeTransfer(order.trader, refundAmount);
             _removeBuyOrder(orderId, projectBuyOrders[order.projectId]);
         } else {
@@ -332,7 +332,7 @@ abstract contract OrderBook is DataTypes {
 
         // Use seller's price (price improvement for buyer)
         uint256 tradePrice = sellOrder.pricePerShare;
-        uint256 tradeValue = (tradedShares * tradePrice) / 1e18; 
+        uint256 tradeValue = (tradedShares * tradePrice) / 1e18;
 
         // Calculate fees
         uint256 fee = (tradeValue * tradingFeeRate) / 10000;

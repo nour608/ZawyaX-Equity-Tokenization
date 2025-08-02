@@ -57,7 +57,7 @@ contract FactoryTest is Test {
     // Project test data
     bytes32 public constant TEST_IPFS_CID = keccak256("QmTestHash");
     uint256 public constant TEST_VALUATION = 1000000e18; // $1M USD
-    uint256 public constant TEST_SHARES_TO_SELL = 100000e18; // 100k shares 
+    uint256 public constant TEST_SHARES_TO_SELL = 100000e18; // 100k shares
     string public constant TEST_PROJECT_NAME = "TestProject";
     string public constant TEST_PROJECT_SYMBOL = "TEST";
 
@@ -245,7 +245,10 @@ contract FactoryTest is Test {
         // Verify project state updated
         DataTypes.Project memory updatedProject = factory.getProject(projectId);
         assertEq(updatedProject.sharesSold, sharesToBuy);
-        assertEq(updatedProject.availableSharesToSell, TEST_SHARES_TO_SELL - sharesToBuy - (TEST_SHARES_TO_SELL * PLATFORM_FEE) / 10000);
+        assertEq(
+            updatedProject.availableSharesToSell,
+            TEST_SHARES_TO_SELL - sharesToBuy - (TEST_SHARES_TO_SELL * PLATFORM_FEE) / 10000
+        );
         assertEq(updatedProject.availableFunds, expectedCost);
     }
 
@@ -843,17 +846,10 @@ contract FactoryTest is Test {
 
     function test_ProjectCount_IncrementsAfterCreation() public {
         uint256 initialCount = factory.projectCount();
-        
+
         vm.prank(founder1);
-        factory.createProject(
-            bytes32("ipfs_hash_2"),
-            50000,
-            500000 * 1e18,
-            address(usdc),
-            "TestProject2",
-            "TP2"
-        );
-        
+        factory.createProject(bytes32("ipfs_hash_2"), 50000, 500000 * 1e18, address(usdc), "TestProject2", "TP2");
+
         assertEq(factory.projectCount(), initialCount + 1);
     }
 
@@ -866,12 +862,11 @@ contract FactoryTest is Test {
         assertTrue(factory.isProjectPaused(projectId));
     }
 
-
     function test_UnpauseProject_Success() public returns (uint256 projectId) {
         projectId = _createTestProject();
-        
+
         assertTrue(factory.isProjectPaused(projectId));
-        
+
         vm.prank(admin);
         factory.unpauseProject(projectId);
         assertFalse(factory.isProjectPaused(projectId));
@@ -881,7 +876,7 @@ contract FactoryTest is Test {
     function test_FactoryPause_Success() public {
         vm.prank(admin);
         factory.pause();
-        
+
         assertTrue(factory.paused());
     }
 
@@ -896,7 +891,7 @@ contract FactoryTest is Test {
         vm.prank(admin);
         factory.pause();
         assertTrue(factory.paused());
-        
+
         // Then unpause
         vm.prank(admin);
         factory.unpause();
@@ -906,47 +901,47 @@ contract FactoryTest is Test {
     function test_FactoryUnpause_RevertWhenNotAdmin() public {
         vm.prank(admin);
         factory.pause();
-        
+
         vm.prank(founder1);
         vm.expectRevert();
         factory.unpause();
     }
-   
-    /// @notice Tests for setProjectExists() function  
+
+    /// @notice Tests for setProjectExists() function
     function test_SetProjectExists_ToFalse() public {
         uint256 projectId = _createTestProject();
         assertTrue(factory.projectExists(projectId));
-        
+
         vm.expectEmit(true, true, false, true);
         emit ProjectExists(projectId, false);
-        
+
         vm.prank(admin);
         factory.setProjectExists(projectId, false);
-        
+
         assertFalse(factory.projectExists(projectId));
     }
 
     function test_SetProjectExists_ToTrue() public {
         uint256 projectId = _createTestProject();
-        
+
         // First set to false
         vm.prank(admin);
         factory.setProjectExists(projectId, false);
         assertFalse(factory.projectExists(projectId));
-        
+
         vm.expectEmit(true, true, false, true);
         emit ProjectExists(projectId, true);
-        
+
         // Then set back to true
         vm.prank(admin);
         factory.setProjectExists(projectId, true);
-        
+
         assertTrue(factory.projectExists(projectId));
     }
 
     function test_SetProjectExists_RevertWhenNotAdmin() public {
         uint256 projectId = _createTestProject();
-        
+
         vm.prank(founder1);
         vm.expectRevert();
         factory.setProjectExists(projectId, false);
@@ -956,40 +951,41 @@ contract FactoryTest is Test {
     function test_OnlyFactoryAdmin_Modifier() public {
         // Test functions that use onlyFactoryAdmin modifier
         // Already covered by other tests, but let's test the access explicitly
-        
+
         // Test that non-admin cannot call admin functions
         vm.prank(founder1);
         vm.expectRevert();
         factory.setPlatformFee(1000);
-        
+
         vm.prank(investor1);
         vm.expectRevert();
         factory.setTradingFeeRate(50);
-        
+
         // Test that admin can call these functions
         vm.prank(admin);
         factory.setPlatformFee(1000);
-        
+
         vm.prank(admin);
         factory.setTradingFeeRate(50);
     }
 
-
     /// @notice Tests for edge cases in existing functions
-    function test_CreateProject_EdgeCases() public {    
+    function test_CreateProject_EdgeCases() public {
         // Test edge case: shares equal to total shares
         vm.prank(founder1);
         uint256 projectId = factory.createProject(
             bytes32("edge_case"),
             100000,
-            factory.TOTAL_SHARES(), // Exactly total shares  
+            factory.TOTAL_SHARES(), // Exactly total shares
             address(usdc),
             "EdgeProject",
             "EDGE"
         );
-        
+
         DataTypes.Project memory project = factory.getProject(projectId);
-        assertEq(project.availableSharesToSell, factory.TOTAL_SHARES() - (factory.TOTAL_SHARES() * PLATFORM_FEE) / 10000);
+        assertEq(
+            project.availableSharesToSell, factory.TOTAL_SHARES() - (factory.TOTAL_SHARES() * PLATFORM_FEE) / 10000
+        );
     }
 
     function test_CreateProject_RevertWhenSharesExceedTotal() public {
@@ -1008,16 +1004,9 @@ contract FactoryTest is Test {
     function test_CreateProject_RevertWhenInvalidPurchaseToken() public {
         // Create a token that's not whitelisted
         MockERC20 invalidToken = new MockERC20("Invalid", "INV", 18);
-        
+
         vm.prank(founder1);
         vm.expectRevert("Purchase token not whitelisted");
-        factory.createProject(
-            bytes32("invalid"),
-            100000,
-            500000 * 1e18,
-            address(invalidToken),
-            "InvalidProject",
-            "INV"
-        );
+        factory.createProject(bytes32("invalid"), 100000, 500000 * 1e18, address(invalidToken), "InvalidProject", "INV");
     }
 }
