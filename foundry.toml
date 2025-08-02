@@ -21,15 +21,9 @@ remappings = [
 
 # Network configurations
 [rpc_endpoints]
-mainnet = "${MAINNET_RPC_URL}"
-sepolia = "${SEPOLIA_RPC_URL}"
-polygon = "${POLYGON_RPC_URL}"
-arbitrum = "${ARBITRUM_RPC_URL}"
+etherlink = "https://node.ghostnet.etherlink.com"
 
 [etherscan]
-mainnet = { key = "${ETHERSCAN_API_KEY}" }
-sepolia = { key = "${ETHERSCAN_API_KEY}" }
-polygon = { key = "${POLYGONSCAN_API_KEY}" }
-arbitrum = { key = "${ARBISCAN_API_KEY}" }
+etherlink = { key = "${ETHERLINK_API_KEY}", url = "https://testnet.explorer.etherlink.com/api" }
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
