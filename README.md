@@ -9,15 +9,15 @@ ZawyaX is a comprehensive decentralized community platform that empowers freelan
 
 **This repository (ZawyaX-Equity-Tokenization)** contains:
 
-- 📈 **Project Tokenization Platform** - Core smart contracts and frontend
-- 💬 **Decentralized Communication** - Nostr protocol integration
-- 🖥️ **Main Frontend Demo** - Unified platform interface
-- 🔧 **Etherlink & Thirdweb Integration** - L2 deployment and wallet connectivity
+- **Project Tokenization Platform** - Core smart contracts and frontend
+- **Decentralized Communication** - Nostr protocol integration
+- **Main Frontend Demo** - Unified platform interface
+- **Etherlink & Thirdweb Integration** - L2 deployment and wallet connectivity
 
 **Related Repository:**
 
-- 🤝 [**Freelance Services Platform**](https://github.com/nour608/ZawiyaX) - Smart contracts for escrow, dispute resolution, and reputation system
-## 🎯 Problem Statement
+- [**Freelance Services Platform**](https://github.com/nour608/ZawiyaX) - Smart contracts for escrow, dispute resolution, and reputation system
+## Problem Statement
 
 Current freelance and project funding platforms suffer from:
 
@@ -27,31 +27,31 @@ Current freelance and project funding platforms suffer from:
 - Privacy concerns with traditional communication tools
 - Fragmented ecosystem requiring multiple platforms
 
-## 💡 Solution
+## Solution
 
 ZawyaX provides an integrated ecosystem with three core components:
 
-### 1. 🤝 Freelance Services Mechanism
+### 1. Freelance Services Mechanism
 
 - **Trust & Privacy**: Decentralized reputation system
 - **Smart Escrow**: Automated payment release based on milestones
 - **Dispute Resolution**: Community-driven arbitration
 - **Cost Optimization**: Hybrid on-chain/off-chain architecture
 
-### 2. 📈 Project Tokenization Platform
+### 2. Project Tokenization Platform
 
 - **Equity Tokenization**: Transform projects into investable tokens
 - **OrderBook Trading**: Built-in DEX for project shares
 - **Real-World Projects (RWP)**: Bridge physical assets to blockchain
 - **Democratic Governance**: Token holders participate in project decisions
 
-### 3. 💬 Decentralized Communication
+### 3. Decentralized Communication
 
 - **Nostr Integration**: Censorship-resistant messaging
 - **Social Features**: Community building and networking
 - **Privacy-First**: End-to-end encrypted communications
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
@@ -69,7 +69,7 @@ ZawyaX provides an integrated ecosystem with three core components:
 
 ```
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Blockchain & Smart Contracts
 
@@ -91,7 +91,7 @@ ZawyaX provides an integrated ecosystem with three core components:
 - **Decentralized Social**: Nostr protocol (nostr-tools 2.15)
 - **Markdown**: React Markdown
 
-### **🎯 SPONSOR TECHNOLOGY INTEGRATION**
+### **SPONSOR TECHNOLOGY INTEGRATION**
 
 ### **ETHERLINK L2 BLOCKCHAIN**
 
@@ -115,7 +115,7 @@ ZawyaX provides an integrated ecosystem with three core components:
     - Simplified smart contract interactions
     - Social login options for Web2 users transitioning to Web3
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -158,7 +158,7 @@ e.g. open [http://localhost:3000](http://localhost:3000/)
 forge test
 ```
 
-## 📱 Core Features Demo
+## Core Features Demo
 
 **Everything will be connected with the user wallet address**
 
@@ -242,7 +242,7 @@ Dispute Resolution: Ready for deployment
 - **Etherlink's proven security** inherited from Tezos consensus
 - **Thirdweb's audited contracts** for payment processing
 
-## 🛣️ Roadmap
+## Roadmap
 
 ### Phase 1 (Current)
 
