@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
+// pragma solidity 0.8.25;
 
-import {Script, console} from "forge-std/Script.sol";
-import {Factory} from "../src/Factory.sol";
-import {CurrencyManager} from "../src/CurrencyManager.sol";
-import {UserRegistry} from "../src/UserRegistry.sol";
+// import {Script, console} from "forge-std/Script.sol";
+// import {Factory} from "../src/Factory.sol";
+// import {CurrencyManager} from "../src/CurrencyManager.sol";
+// import {UserRegistry} from "../src/UserRegistry.sol";
 
-contract DeployScript is Script {
+// contract DeployScript is Script {
 // // Configuration - adjust these before deployment
 // uint256 constant PLATFORM_FEE = 500; // 5% platform fee
 // uint256 constant TRADING_FEE = 25;   // 0.25% trading fee
@@ -83,4 +83,4 @@ contract DeployScript is Script {
 //     vm.writeFile("deployment.env", deploymentInfo);
 //     console.log("Deployment info saved to deployment.env");
 // }
-}
+// }

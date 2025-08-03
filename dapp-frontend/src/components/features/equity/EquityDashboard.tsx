@@ -63,7 +63,8 @@ export function EquityDashboard() {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Contract Not Configured</AlertTitle>
           <AlertDescription>
-            Smart contracts are not configured. Token data will be displayed from mock data.
+            Smart contracts are not configured. Token data will be displayed
+            from mock data.
             {contractError}
           </AlertDescription>
         </Alert>
@@ -71,16 +72,16 @@ export function EquityDashboard() {
 
       {/* Page Header */}
       <PageHeader
-        title="Equity Tokens"
+        title="Equity Tokenization"
         description="Manage your tokenized equity investments"
         breadcrumbs={[
           { label: "App", href: "/app" },
-          { label: "Equity Tokens" }
+          { label: "Equity Tokenization" },
         ]}
       >
         <Button className="flex items-center gap-2">
           <Plus className="w-4 h-4" />
-          Create Token
+          Tokenize Project
         </Button>
       </PageHeader>
 
@@ -88,11 +89,15 @@ export function EquityDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Portfolio Value</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Portfolio Value
+            </CardTitle>
             <Wallet className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatTokenAmount(BigInt(0))} ETH</div>
+            <div className="text-2xl font-bold">
+              {formatTokenAmount(BigInt(0))} ETH
+            </div>
             <p className="text-xs text-muted-foreground">
               <span className="text-green-600">+2.5%</span> from last month
             </p>
@@ -119,9 +124,7 @@ export function EquityDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">0</div>
-            <p className="text-xs text-muted-foreground">
-              Token types owned
-            </p>
+            <p className="text-xs text-muted-foreground">Token types owned</p>
           </CardContent>
         </Card>
 
@@ -132,9 +135,7 @@ export function EquityDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">+12.5%</div>
-            <p className="text-xs text-muted-foreground">
-              30-day performance
-            </p>
+            <p className="text-xs text-muted-foreground">30-day performance</p>
           </CardContent>
         </Card>
       </div>
@@ -153,8 +154,12 @@ export function EquityDashboard() {
                   className="pl-10 w-64"
                 />
               </div>
-              
-              <Button variant="outline" size="sm" className="flex items-center gap-2">
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+              >
                 <Filter className="w-4 h-4" />
                 Filter
               </Button>
@@ -163,17 +168,17 @@ export function EquityDashboard() {
             <div className="flex items-center gap-2">
               <div className="flex rounded-lg border">
                 <Button
-                  variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                  variant={viewMode === "grid" ? "default" : "ghost"}
                   size="sm"
-                  onClick={() => setViewMode('grid')}
+                  onClick={() => setViewMode("grid")}
                   className="rounded-r-none"
                 >
                   <Grid className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant={viewMode === 'list' ? 'default' : 'ghost'}
+                  variant={viewMode === "list" ? "default" : "ghost"}
                   size="sm"
-                  onClick={() => setViewMode('list')}
+                  onClick={() => setViewMode("list")}
                   className="rounded-l-none"
                 >
                   <List className="w-4 h-4" />
@@ -187,10 +192,10 @@ export function EquityDashboard() {
           {/* Filters */}
           <div className="flex items-center gap-2 mb-6">
             <span className="text-sm text-muted-foreground">Filter by:</span>
-            {['all', 'owned', 'trending', 'new'].map((filter) => (
+            {["all", "owned", "trending", "new"].map((filter) => (
               <Badge
                 key={filter}
-                variant={selectedFilter === filter ? 'default' : 'outline'}
+                variant={selectedFilter === filter ? "default" : "outline"}
                 className="cursor-pointer capitalize"
                 onClick={() => setSelectedFilter(filter)}
               >
@@ -205,21 +210,25 @@ export function EquityDashboard() {
               <Building2 className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium mb-2">No tokens found</h3>
               <p className="text-muted-foreground mb-4">
-                {searchQuery ? 'Try adjusting your search criteria' : 'Create your first equity token to get started'}
+                {searchQuery
+                  ? "Try adjusting your search criteria"
+                  : "Create your first equity token to get started"}
               </p>
               <Button>
                 <Plus className="w-4 h-4 mr-2" />
-                Create Token
+                Tokenize Project
               </Button>
             </div>
           ) : (
-            <div className={
-              viewMode === 'grid' 
-                ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-                : "space-y-4"
-            }>
-              {filteredTokens.map((token) => (
-                viewMode === 'grid' ? (
+            <div
+              className={
+                viewMode === "grid"
+                  ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                  : "space-y-4"
+              }
+            >
+              {filteredTokens.map((token) =>
+                viewMode === "grid" ? (
                   <EquityTokenCard
                     key={token.id}
                     token={token}
@@ -234,7 +243,7 @@ export function EquityDashboard() {
                     onViewDetails={handleViewDetails}
                   />
                 )
-              ))}
+              )}
             </div>
           )}
         </CardContent>

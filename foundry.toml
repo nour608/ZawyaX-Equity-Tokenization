@@ -7,13 +7,6 @@ via_ir = true
 # optimizer_runs = 200 
 solc_version = "0.8.25"
 
-# Gas reporting
-gas_reports = ["*"]
-gas_limit = 9223372036854775807
-
-# Testing
-fuzz = { runs = 256 }
-invariant = { runs = 256, depth = 15, fail_on_revert = false }
 
 remappings = [
     "@openzeppelin/contracts=lib/openzeppelin-contracts/contracts"
@@ -26,4 +19,3 @@ etherlink = "https://node.ghostnet.etherlink.com"
 [etherscan]
 etherlink = { key = "${ETHERLINK_API_KEY}", url = "https://testnet.explorer.etherlink.com/api" }
 
-# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

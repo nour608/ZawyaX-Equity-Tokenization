@@ -34,7 +34,7 @@ const navigationItems: NavigationItem[] = [
   },
   {
     id: "equity",
-    label: "Equity Tokens",
+    label: "Equity Tokenization",
     href: ROUTES.EQUITY,
     icon: Building2,
   },
@@ -53,7 +53,7 @@ const navigationItems: NavigationItem[] = [
     badge: 2, // Mock new jobs
   },
   {
-    id: "profile", 
+    id: "profile",
     label: "Profile",
     href: ROUTES.PROFILE,
     icon: User,
