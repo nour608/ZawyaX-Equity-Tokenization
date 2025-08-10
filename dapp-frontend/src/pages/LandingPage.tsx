@@ -113,7 +113,7 @@ onConnect={() => navigate(ROUTES.APP)}
       <section className="py-20 px-4">
         <div className="container mx-auto text-center space-y-8">
           <Badge variant="secondary" className="px-4 py-2">
-            🚀 Now live on Base Network
+            🚀 Now live on Etherlink Network
           </Badge>
           
           <h1 className="text-4xl md:text-6xl font-bold max-w-4xl mx-auto leading-tight">
